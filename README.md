@@ -55,10 +55,11 @@ CheatSheet/
 - Enter numbers and operations using the calculator interface.
 - Use `C` to clear, `⌫` to delete, and `=` to calculate results.
 
+
 ### Cheat Sheet
 - Browse SolidCAM package and maintenance details.
 - Use drag-and-drop to organize or group items as needed.
-- Click the copy icon to copy information to your clipboard.
+- Click any code button to copy its information to your clipboard instantly.
 
 ### Data Persistence
 - Your changes and organization are saved automatically in your browser.
