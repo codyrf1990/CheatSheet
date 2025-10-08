@@ -11,6 +11,8 @@ const masterLabelLookup = buildMasterLabelLookup();
 const PACKAGE_SCOPE = 'package-bits';
 
 export function renderApp(mount) {
+  editMode = false;
+  document.body.classList.remove('edit-mode');
   packageAddMode = false;
   packageRemoveMode = false;
   panelRemoveModes.clear();

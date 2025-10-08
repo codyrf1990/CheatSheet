@@ -95,11 +95,13 @@ export const panels = [
     title: 'Standalone Modules',
     editable: true,
     items: [
+      '25M',
       'Convert5X',
       'EdgeBreak',
       'EdgeTrim',
-      'G-Code Simulation',
+      'HSM',
       'iMach2d',
+      'iMach3D',
       'MachSim',
       'MTS',
       'Multiaxis',
@@ -109,6 +111,7 @@ export const panels = [
       'Sim4x',
       'Sim5x',
       'Swiss',
+      'turn',
       'Vericut'
     ]
   },
@@ -120,6 +123,7 @@ export const panels = [
       'Convert5X-Maint',
       'EdgeBreak-Maint',
       'EdgeTrim-Maint',
+      'HSM-Maint',
       'iMach2d-Maint',
       'iMach3d-Maint',
       'MachSim-Maint',
@@ -133,11 +137,14 @@ export const panels = [
       'SC-Mill-Adv-Maint',
       'SC-Mill-Maint',
       'SC-Turn-Maint',
+      'SolidShop-Sim-maint',
       'Sim4x-Maint',
       'Sim5x-Maint',
       'SolidShop-Editor-maint',
-      'SolidShop-Simulator-maint',
       'Swiss-Maint',
+      '25M-Maint',
+      'turn-maint',
+      'NPD-Maint',
       'Vericut-Maint'
     ]
   },
@@ -151,7 +158,8 @@ export const panels = [
       'SW-Pro-Maint',
       'SW-Pro-Net-Maint',
       'SW-Std-Maint',
-      'SW-Std-Net-Maint'
+      'SW-Std-Net-Maint',
+      'SW-Info-Maint'
     ]
   }
 ];
