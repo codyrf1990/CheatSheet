@@ -8,6 +8,42 @@
 </head>
 <body>
   <div id="app"></div>
+
+  <!-- Calculator Section -->
+  <section class="calculator-section">
+    <div class="calculator-header">
+      <h2>Calculator</h2>
+    </div>
+    <div class="calculator">
+      <div class="calculator-display">0</div>
+      <div class="calculator-buttons">
+        <button class="calculator-button calculator-clear" data-action="clear">C</button>
+        <button class="calculator-button calculator-delete" data-action="delete">⌫</button>
+        <button class="calculator-button calculator-operation" data-operation="%">%</button>
+        <button class="calculator-button calculator-operation" data-operation="÷">÷</button>
+
+        <button class="calculator-button calculator-number" data-number="7">7</button>
+        <button class="calculator-button calculator-number" data-number="8">8</button>
+        <button class="calculator-button calculator-number" data-number="9">9</button>
+        <button class="calculator-button calculator-operation" data-operation="×">×</button>
+
+        <button class="calculator-button calculator-number" data-number="4">4</button>
+        <button class="calculator-button calculator-number" data-number="5">5</button>
+        <button class="calculator-button calculator-number" data-number="6">6</button>
+        <button class="calculator-button calculator-operation" data-operation="-">-</button>
+
+        <button class="calculator-button calculator-number" data-number="1">1</button>
+        <button class="calculator-button calculator-number" data-number="2">2</button>
+        <button class="calculator-button calculator-number" data-number="3">3</button>
+        <button class="calculator-button calculator-operation" data-operation="+">+</button>
+
+        <button class="calculator-button calculator-number zero" data-number="0">0</button>
+        <button class="calculator-button calculator-decimal" data-action="decimal">.</button>
+        <button class="calculator-button calculator-equals" data-action="equals">=</button>
+      </div>
+    </div>
+  </section>
+
   <script type="module" src="assets/js/app.js"></script>
 </body>
 </html>
