@@ -1,3 +1,9 @@
+  /* Move plus sign up and to the left */
+  .material-icons {
+    position: relative;
+    top: -4px;
+    left: -4px;
+  }
 :root {
   --solidcam-red: #c8102e;
   --solidcam-dark-red: #8b0000;
@@ -197,8 +203,8 @@ a {
 }
 
 .mode-toggle {
-   width: 1.2rem;
-   height: 1.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
    border-radius: 999px;
    border: 1px solid rgba(255, 255, 255, 0.18);
    background: rgba(0, 0, 0, 0.35);
@@ -213,11 +219,21 @@ a {
 }
 
 .mode-toggle[data-action="package-toggle-add-mode"] {
-   background-image: url('assets/img/icons8-plus-64.png');
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Material Icons';
+  font-size: 1.1rem;
+  color: #fff;
 }
 
 .mode-toggle[data-action="package-toggle-remove-mode"] {
-   background-image: url('assets/img/icons8-minus-64.png');
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Material Icons';
+  font-size: 1.1rem;
+  color: #fff;
 }
 
 .mode-toggle:hover {
@@ -373,12 +389,17 @@ tbody td {
    position: absolute;
    top: -0.1rem;
    right: -0.1rem;
-   width: 1.2rem;
-   height: 1.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
    border-radius: 999px;
    border: 1px solid rgba(255, 255, 255, 0.18);
    background: linear-gradient(135deg, rgba(64, 64, 64, 0.9), rgba(32, 32, 32, 0.9));
-   background-image: url('assets/img/icons8-plus-64.png');
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Material Icons';
+  font-size: 1.4rem;
+  color: #fff;
    background-size: 0.8rem 0.8rem;
    background-repeat: no-repeat;
    background-position: center;
@@ -722,11 +743,21 @@ body.edit-mode .drop-invalid.placeholder {
 }
 
 .panel-mode-btn[data-action="panel-add-item"] {
-   background-image: url('assets/img/icons8-plus-64.png');
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Material Icons';
+  font-size: 1.1rem;
+  color: #fff;
 }
 
 .panel-mode-btn[data-action="panel-toggle-remove"] {
-   background-image: url('assets/img/icons8-minus-64.png');
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Material Icons';
+  font-size: 1.1rem;
+  color: #fff;
 }
 
 .panel-mode-btn:hover {
