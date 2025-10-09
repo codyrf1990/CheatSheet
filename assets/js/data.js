@@ -1,9 +1,34 @@
 export const headerLinks = [
-  { label: 'Main Support Site', href: 'https://solidcam.com/subscription/technical-support/', intent: 'support' },
-  { label: 'Support Ticket Site', href: 'https://solidcamsupport.com/', intent: 'support' },
-  { label: 'SolidCAM University', href: 'https://www.youtube.com/c/SolidCAMUniversity', intent: 'university' },
-  { label: 'SolidCAM Academy', href: 'https://elearning-solidcam.talentlms.com/', intent: 'academy' },
-  { label: 'SolidCAM ChatBot', href: 'https://www.solidcamchat.com/', intent: 'chatbot' }
+  {
+    label: 'Main Support Site',
+    href: 'https://solidcam.com/subscription/technical-support/',
+    intent: 'support',
+    description: 'Official support hub: subscription support info, articles, downloads and contacts.'
+  },
+  {
+    label: 'Support Ticket Site',
+    href: 'https://solidcamsupport.com/',
+    intent: 'support',
+    description: 'Submit and track technical support tickets for SolidCAM.'
+  },
+  {
+    label: 'SolidCAM University',
+    href: 'https://www.youtube.com/c/SolidCAMUniversity',
+    intent: 'university',
+    description: 'Official YouTube channel: tutorials, webinars, tips and demos.'
+  },
+  {
+    label: 'SolidCAM Academy',
+    href: 'https://elearning-solidcam.talentlms.com/',
+    intent: 'academy',
+    description: 'Self‑paced eLearning (LMS) with structured courses and progress tracking.'
+  },
+  {
+    label: 'SolidCAM ChatBot',
+    href: 'https://www.solidcamchat.com/',
+    intent: 'chatbot',
+    description: 'Chat assistant for quick answers and links to resources.'
+  }
 ];
 
 export const packages = [

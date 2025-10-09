@@ -162,8 +162,9 @@ function renderHeaderLink(link) {
   const intentClass = `${link.intent}-button`;
   const safeHref = escapeAttr(link.href);
   const safeLabel = escapeHtml(link.label);
+  const titleAttr = link.description ? ` title="${escapeAttr(link.description)}"` : '';
   return `
-    <a href="${safeHref}" class="${intentClass}" target="_blank" rel="noopener noreferrer">
+    <a href="${safeHref}" class="${intentClass}" target="_blank" rel="noopener noreferrer"${titleAttr}>
       ${safeLabel}
     </a>
   `;
@@ -222,6 +223,15 @@ function renderPackagesTable() {
 }
 
 function renderAboutOverlay() {
+  const linksMarkup = (headerLinks || [])
+    .map(link => {
+      const href = escapeAttr(link.href);
+      const label = escapeHtml(link.label);
+      const desc = link.description ? ` — ${escapeHtml(link.description)}` : '';
+      return `<li><a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>${desc}</li>`;
+    })
+    .join('');
+
   return `
     <div class="about-overlay" role="dialog" aria-modal="true" aria-hidden="true">
       <div class="about-modal">
@@ -231,18 +241,33 @@ function renderAboutOverlay() {
         </div>
         <div class="about-modal-body">
           <p>Quick guide for teammates. Use this page to pick, explain, and share SolidCAM options fast.</p>
+          <h4>Sections at a glance</h4>
+          <ul>
+            <li><strong>Package Bits</strong> (left): pick master groups like <em>25M</em> and individual bits.</li>
+            <li><strong>Standalone Modules</strong>, <strong>Maintenance SKUs</strong>, <strong>SolidWorks Maintenance</strong> (right): quick lists for add‑ons and maintenance. The cards stay fixed; the pills inside compress in delete mode.</li>
+          </ul>
           <h4>What you do here</h4>
           <ul>
-            <li><strong>Included Bits</strong>: Check the boxes you need. Groups like <em>25M</em> contain several items.</li>
+            <li><strong>Included Bits</strong>: Check what you need. Groups like <em>25M</em> contain several items.</li>
             <li><strong>+/−</strong>: Add a new bit or remove one when those modes are on.</li>
-            <li><strong>Edit Order</strong>: Turn it on to drag things where you want. Click again to save.</li>
-            <li><strong>Reset Order</strong>: Go back to the default setup (also clears custom items).</li>
-            <li><strong>Reset Checks</strong>: Unchecks everything only; your layout stays the same.</li>
-            <li><strong>Right Cards</strong>: Standalone Modules, Maintenance SKUs, and SolidWorks Maintenance work the same way.</li>
-            <li><strong>Copy</strong>: Click any code chip to copy its text (disabled while editing).</li>
-            <li><strong>Saved for you</strong>: Your changes are saved in this browser only. Use Reset Order to wipe them.</li>
+            <li><strong>Edit Order</strong>: Turn it on to drag items; click again to save.</li>
+            <li><strong>Reset Order</strong>: Restore defaults and clear custom items.</li>
+            <li><strong>Reset Checks</strong>: Uncheck everything only; layout stays the same.</li>
+            <li><strong>Right Cards</strong>: Work the same way as Included Bits.</li>
+            <li><strong>Copy</strong>: Click any code chip to copy (disabled while editing).</li>
+            <li><strong>Saved for you</strong>: Changes save in this browser. Use Reset Order to wipe them.</li>
           </ul>
-          <p>If anything looks off, click Edit Order once, then click it again to save—this refreshes what’s on screen.</p>
+          <h4>Header Links</h4>
+          <ul class="about-links">
+            ${linksMarkup}
+          </ul>
+          <h4>Logo</h4>
+          <ul>
+            <li><strong>SolidCAM logo</strong>: opens the main site —
+              <a href="https://solidcam.com/en-us/" target="_blank" rel="noopener noreferrer">solidcam.com/en‑us</a>.
+            </li>
+          </ul>
+          <p>If anything looks off, click Edit Order once, then click it again to save — this refreshes what’s on screen.</p>
         </div>
       </div>
     </div>

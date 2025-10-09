@@ -468,6 +468,17 @@ thead th {
   color: rgba(235,235,235,0.9);
 }
 
+.about-modal-body a {
+  color: var(--solidcam-gold);
+  text-decoration: none;
+  border-bottom: 1px dotted rgba(212, 175, 55, 0.6);
+}
+
+.about-modal-body a:hover {
+  filter: brightness(1.1);
+  border-bottom-color: rgba(212, 175, 55, 0.9);
+}
+
 tbody tr {
   transition: background var(--transition-fast);
 }
