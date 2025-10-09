@@ -9,6 +9,8 @@ let packageRemoveMode = false;
 const panelRemoveModes = new Map();
 const masterLabelLookup = buildMasterLabelLookup();
 const PACKAGE_SCOPE = 'package-bits';
+let widthSyncRoot = null;
+let widthSyncListenerAttached = false;
 
 export function renderApp(mount) {
   editMode = false;
@@ -106,6 +108,9 @@ export function renderApp(mount) {
 
   updateMasterCheckboxes(root);
   registerCopyHandlers(root, () => editMode);
+  widthSyncRoot = root;
+  requestAnimationFrame(() => syncPanelWidths(root));
+  ensureWidthSyncListener();
 }
 
 function renderHeader() {
@@ -418,10 +423,11 @@ function handleAddBit(control, root) {
   registerCopyHandlers(element, () => editMode);
 
   if (editMode) {
-    enableDrag(element);
+  enableDrag(element);
   }
 
   persistState(root);
+  requestAnimationFrame(() => syncPanelWidths(root));
 }
 
 function handleBitRemoval(action, control, root) {
@@ -454,6 +460,7 @@ function handleBitRemoval(action, control, root) {
 
   updateMasterCheckboxes(root);
   persistState(root);
+  requestAnimationFrame(() => syncPanelWidths(root));
 }
 
 function handleSortableDrop(event, root) {
@@ -463,6 +470,7 @@ function handleSortableDrop(event, root) {
   if (!(item instanceof HTMLElement) || !(to instanceof HTMLElement)) {
     updateMasterCheckboxes(root);
     persistState(root);
+    requestAnimationFrame(() => syncPanelWidths(root));
     return;
   }
 
@@ -473,12 +481,14 @@ function handleSortableDrop(event, root) {
   if (!toIsBits && !toIsSubBits) {
     updateMasterCheckboxes(root);
     persistState(root);
+    requestAnimationFrame(() => syncPanelWidths(root));
     return;
   }
 
   if (movingWithinSameContainer) {
     updateMasterCheckboxes(root);
     persistState(root);
+    requestAnimationFrame(() => syncPanelWidths(root));
     return;
   }
 
@@ -486,6 +496,7 @@ function handleSortableDrop(event, root) {
   if (!labelSpan) {
     updateMasterCheckboxes(root);
     persistState(root);
+    requestAnimationFrame(() => syncPanelWidths(root));
     return;
   }
 
@@ -535,6 +546,7 @@ function handleSortableDrop(event, root) {
 
   updateMasterCheckboxes(root);
   persistState(root);
+  requestAnimationFrame(() => syncPanelWidths(root));
 }
 
 function handlePanelAdd(control, root) {
@@ -559,6 +571,7 @@ function handlePanelAdd(control, root) {
   }
 
   persistState(root);
+  requestAnimationFrame(() => syncPanelWidths(root));
 }
 
 function handlePanelToggleRemove(control) {
@@ -577,6 +590,7 @@ function handlePanelRemoveItem(control, root) {
   if (!item) return;
   item.remove();
   persistState(root);
+  requestAnimationFrame(() => syncPanelWidths(root));
 }
 
 function togglePanelRemoveMode(panel) {
@@ -593,6 +607,10 @@ function setPanelRemoveMode(panel, nextState) {
   if (toggle) {
     toggle.classList.toggle('active', nextState);
     toggle.setAttribute('aria-pressed', String(nextState));
+  }
+  const root = panel.closest('.page-shell');
+  if (root) {
+    requestAnimationFrame(() => syncPanelWidths(root));
   }
 }
 
@@ -749,6 +767,8 @@ function applyState(root, state) {
   if (editMode) {
     enableDrag(root);
   }
+
+  requestAnimationFrame(() => syncPanelWidths(root));
 }
 
 function masterBitMarkup(group, scope) {
@@ -870,6 +890,70 @@ function escapeSelector(value = '') {
 
 function getPackageScope(pkgCode) {
   return PACKAGE_SCOPE;
+}
+
+function syncPanelWidths(root) {
+  if (!root || typeof window === 'undefined') return;
+
+  if (window.matchMedia && window.matchMedia('(max-width: 1024px)').matches) {
+    document.documentElement.style.removeProperty('--right-panel-width');
+    document.documentElement.style.removeProperty('--layout-content-width');
+    return;
+  }
+
+  const maintenance = root.querySelector('.panel[data-panel="maintenance-skus"]');
+  if (maintenance) {
+    const panelWidth = maintenance.getBoundingClientRect().width;
+    if (Number.isFinite(panelWidth) && panelWidth > 0) {
+      document.documentElement.style.setProperty(
+        '--right-panel-width',
+        `${Math.ceil(panelWidth)}px`
+      );
+    }
+  }
+
+  const block = root.querySelector('.block');
+  if (!block) return;
+
+  const tableColumn = block.querySelector('.table-column');
+  const panelsColumn = block.querySelector('.panels');
+  const blockRect = block.getBoundingClientRect();
+  let left = blockRect.left;
+  let right = blockRect.right;
+
+  if (tableColumn) {
+    const rect = tableColumn.getBoundingClientRect();
+    if (Number.isFinite(rect.left) && Number.isFinite(rect.right)) {
+      left = Math.min(left, rect.left);
+      right = Math.max(right, rect.right);
+    }
+  }
+
+  if (panelsColumn) {
+    const rect = panelsColumn.getBoundingClientRect();
+    if (Number.isFinite(rect.left) && Number.isFinite(rect.right)) {
+      left = Math.min(left, rect.left);
+      right = Math.max(right, rect.right);
+    }
+  }
+
+  const width = Math.max(0, right - left);
+
+  document.documentElement.style.setProperty(
+    '--layout-content-width',
+    `${Math.ceil(width || blockRect.width)}px`
+  );
+}
+
+function ensureWidthSyncListener() {
+  if (widthSyncListenerAttached || typeof window === 'undefined') return;
+  const handler = () => {
+    if (widthSyncRoot) {
+      syncPanelWidths(widthSyncRoot);
+    }
+  };
+  window.addEventListener('resize', handler);
+  widthSyncListenerAttached = true;
 }
 
 function buildMasterLabelLookup() {

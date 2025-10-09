@@ -59,6 +59,7 @@ a {
   gap: clamp(1.5rem, 4vw, 3rem);
   max-width: 1200px;
   margin: 0 auto;
+  justify-items: center;
 }
 
 .header {
@@ -73,6 +74,9 @@ a {
   border-radius: 20px;
   box-shadow: 0 25px 45px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(12px);
+  width: var(--layout-content-width, 100%);
+  max-width: 100%;
+  justify-self: center;
 }
 
 .header-logo {
@@ -264,6 +268,9 @@ main {
   grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.95fr);
   gap: clamp(0.8rem, 2vw, 1.4rem);
   align-items: stretch;
+  width: var(--layout-content-width, auto);
+  max-width: 100%;
+  justify-self: center;
 }
 
 .table-column {
@@ -697,9 +704,12 @@ body.edit-mode .drop-invalid.placeholder {
 }
 
 .panels {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: max-content;
+  grid-auto-rows: auto;
   gap: 0.75rem;
+  justify-content: start;
+  align-items: start;
 }
 
 .panel {
@@ -712,6 +722,13 @@ body.edit-mode .drop-invalid.placeholder {
   border-radius: 16px;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
   color: rgba(235, 235, 235, 0.86);
+  width: max-content;
+  max-width: 100%;
+}
+
+.panel[data-panel="standalone-modules"],
+.panel[data-panel="solidworks-maintenance"] {
+  width: var(--right-panel-width, max-content);
 }
 
 .panel-head {
@@ -787,11 +804,22 @@ body.edit-mode .drop-invalid.placeholder {
   padding: 0.2rem;
   display: grid;
   gap: 0.28rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, max-content);
+  justify-content: center;
   min-height: 1.6rem;
   border: 1px solid transparent;
   border-radius: 12px;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.panel[data-panel="standalone-modules"] ul {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-content: stretch;
+}
+
+.panel[data-panel="solidworks-maintenance"] ul {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-content: stretch;
 }
 
 .panel li {
@@ -843,17 +871,18 @@ body.edit-mode .drop-invalid.placeholder {
    font-size: 0.78rem;
    font-weight: 700;
    line-height: 1;
-   display: inline-flex;
+   display: none;
    align-items: center;
    justify-content: center;
    opacity: 0;
    pointer-events: none;
-   transition: background var(--transition-fast), color var(--transition-fast), border var(--transition-fast), opacity var(--transition-fast);
+   transition: background var(--transition-fast), color var(--transition-fast), border var(--transition-fast);
 }
 
 .panel--remove-mode .item-btn {
-   opacity: 1;
+   display: inline-flex;
    pointer-events: auto;
+   animation: fadeInDeleteButton 0.24s ease forwards;
 }
 
 .panel--remove-mode .item-btn:hover {
@@ -942,6 +971,17 @@ body.edit-mode .panel li:hover {
    }
 }
 
+@keyframes fadeInDeleteButton {
+   from {
+     opacity: 0;
+     transform: scale(0.85);
+   }
+   to {
+     opacity: 1;
+     transform: scale(1);
+   }
+}
+
 @keyframes invalidPulse {
    0%, 100% {
      opacity: 0.7;
@@ -975,12 +1015,21 @@ body.edit-mode .panel li:hover {
 @media (max-width: 1024px) {
   .block {
     grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .panels {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 0.75rem;
+  }
+
+  .panel {
+    width: 100%;
+  }
+
+  :root {
+    --right-panel-width: 100%;
   }
 
   .link-row {
