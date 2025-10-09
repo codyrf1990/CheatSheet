@@ -11,6 +11,7 @@ const masterLabelLookup = buildMasterLabelLookup();
 const PACKAGE_SCOPE = 'package-bits';
 let widthSyncRoot = null;
 let widthSyncListenerAttached = false;
+let editModeGuardId = null;
 
 export function renderApp(mount) {
   editMode = false;
@@ -111,6 +112,22 @@ export function renderApp(mount) {
   widthSyncRoot = root;
   requestAnimationFrame(() => syncPanelWidths(root));
   ensureWidthSyncListener();
+
+  // Defensive: if the tab is backgrounded and later restored, ensure edit mode is off
+  const exitEditIfNeeded = () => exitEditMode(root);
+  window.addEventListener('focus', exitEditIfNeeded);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') exitEditIfNeeded();
+  });
+  window.addEventListener('pageshow', () => exitEditIfNeeded());
+
+  // Periodic guard: if body has edit-mode but internal flag is false, clear it
+  if (editModeGuardId) clearInterval(editModeGuardId);
+  editModeGuardId = setInterval(() => {
+    if (!editMode && document.body.classList.contains('edit-mode')) {
+      exitEditMode(root);
+    }
+  }, 15000);
 }
 
 function renderHeader() {
@@ -118,7 +135,9 @@ function renderHeader() {
     <header class="header">
       <div class="header-logo">
         <div class="logo-container">
-          <img src="assets/img/solidcam-logo.svg" alt="SolidCAM logo" class="logo">
+          <a href="https://solidcam.com/en-us/" target="_blank" rel="noopener noreferrer" class="logo-link" aria-label="Open SolidCAM main site">
+            <img src="assets/img/solidcam-logo.svg" alt="SolidCAM logo" class="logo">
+          </a>
         </div>
       </div>
       <div class="header-center">
@@ -879,6 +898,18 @@ function resetModes(root) {
   packageRemoveMode = false;
   updatePackageModeUI(root);
   root.querySelectorAll('.panel').forEach(panel => setPanelRemoveMode(panel, false));
+}
+
+function exitEditMode(root) {
+  if (!editMode) return;
+  editMode = false;
+  document.body.classList.remove('edit-mode');
+  const editButton = root.querySelector('#edit-mode-btn');
+  if (editButton) {
+    editButton.classList.remove('active');
+    editButton.textContent = 'Edit Order';
+  }
+  disableDrag(root);
 }
 
 function escapeSelector(value = '') {

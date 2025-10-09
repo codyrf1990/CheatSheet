@@ -97,6 +97,14 @@ a {
   border-radius: 16px;
 }
 
+.logo-link {
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
 .logo {
   width: 100%;
   height: auto;
@@ -678,9 +686,9 @@ td.pkg span {
 body.edit-mode .bits,
 body.edit-mode .sub-bits,
 body.edit-mode .panel ul {
-  border-color: rgba(255, 255, 255, 0.08);
-  border-style: dashed;
-  background: rgba(255, 255, 255, 0.02);
+  border-color: transparent;
+  border-style: none;
+  background: transparent;
 }
 
 body.edit-mode .drop-target {
@@ -833,7 +841,7 @@ body.edit-mode .drop-invalid.placeholder {
   align-items: center;
   justify-content: space-between;
   gap: 0.35rem;
-  background: rgba(255, 255, 255, 0.055);
+  background: transparent; /* remove faint white pill background in right cards */
   padding: 0.24rem 0.4rem;
   border-radius: 999px;
   transition: background var(--transition-fast), transform var(--transition-fast);
@@ -844,7 +852,7 @@ body.edit-mode .drop-invalid.placeholder {
 }
 
 .panel li:hover {
-  background: rgba(200, 16, 46, 0.14);
+  background: transparent; /* avoid red halo outside code pill */
   transform: translateY(-1px);
 }
 
@@ -853,8 +861,8 @@ body.edit-mode .drop-invalid.placeholder {
   font-size: 0.7rem;
   padding: 0.12rem 0.3rem;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(64, 64, 64, 0.9), rgba(48, 48, 48, 0.92));
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: transparent; /* remove glass look */
+  border: 1px solid rgba(255, 255, 255, 0.12); /* keep a single subtle border */
   text-align: center;
   width: 100%;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), border var(--transition-fast);
@@ -863,8 +871,8 @@ body.edit-mode .drop-invalid.placeholder {
 
 .panel li code:hover {
   transform: translateY(-1px);
-  border-color: var(--solidcam-red);
-  box-shadow: 0 6px 14px rgba(200, 16, 46, 0.24);
+  border-color: rgba(255, 255, 255, 0.28); /* subtle single-border emphasis */
+  box-shadow: none; /* no halo */
 }
 
 .item-btn {
@@ -902,10 +910,9 @@ body.edit-mode .bits li {
   cursor: grab;
 }
 
-body.edit-mode .panel li code,
 body.edit-mode .bits li label {
-  border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.2);
+  border-style: none;
+  border-color: transparent;
 }
 
 .placeholder {
@@ -951,7 +958,7 @@ body.edit-mode .bits li:hover,
 body.edit-mode .sub-bits li:hover,
 body.edit-mode .panel li:hover {
    transform: translateY(-1px);
-   box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+   box-shadow: none;
 }
 
 @keyframes copyPulse {
