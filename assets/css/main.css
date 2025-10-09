@@ -211,54 +211,48 @@ a {
 .package-header-modes {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .mode-toggle {
-  width: 1.1rem;
-  height: 1.1rem;
-   border-radius: 999px;
-   border: 1px solid rgba(255, 255, 255, 0.18);
-   background: rgba(0, 0, 0, 0.35);
-   display: flex;
-   align-items: center;
-   justify-content: center;
-   transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), border var(--transition-fast);
-   position: relative;
-   background-size: 0.8rem 0.8rem;
-   background-repeat: no-repeat;
-   background-position: center;
-}
-
-.mode-toggle[data-action="package-toggle-add-mode"] {
-  display: flex;
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(38, 38, 38, 0.9);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Material Icons';
-  font-size: 1.1rem;
-  color: #fff;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #f2f2f2;
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), border var(--transition-fast);
 }
 
+/* Make the PACKAGE BITS +/- 10% larger than the panel buttons */
+.package-header .mode-toggle {
+  width: calc(0.95rem * 1.1);
+  height: calc(0.95rem * 1.1);
+  font-size: calc(0.7rem * 1.1);
+}
+
+.mode-toggle[data-action="package-toggle-add-mode"],
 .mode-toggle[data-action="package-toggle-remove-mode"] {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Material Icons';
-  font-size: 1.1rem;
-  color: #fff;
+  color: #f2f2f2;
 }
 
 .mode-toggle:hover {
-   background: var(--solidcam-red);
-   border-color: rgba(255, 255, 255, 0.35);
-   transform: scale(1.1);
-   box-shadow: 0 4px 12px rgba(200, 16, 46, 0.3);
+  background: rgba(58, 58, 58, 0.9);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
 }
 
 .mode-toggle.active {
-   background: linear-gradient(135deg, var(--solidcam-gold) 0%, #b8860b 100%);
-   border-color: rgba(255, 255, 255, 0.45);
-   box-shadow: 0 12px 24px rgba(212, 175, 55, 0.32);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.9), rgba(150, 115, 20, 0.9));
+  color: #1a1a1a;
+  border-color: rgba(212, 175, 55, 0.55);
 }
 
 .package-header-controls {
@@ -368,6 +362,110 @@ thead th {
   position: sticky;
   top: 0;
   z-index: 2;
+}
+
+/* Included Bits header with About button */
+.bits-head {
+  position: relative;
+}
+
+.about-btn {
+  position: absolute;
+  top: 50%;
+  right: 0.9rem;
+  transform: translateY(-50%);
+  width: 1.3rem;
+  height: 1.3rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.about-btn img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+}
+
+.about-btn:hover img {
+  filter: brightness(1.05);
+}
+
+/* About overlay */
+.about-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.about-overlay.open {
+  display: flex;
+}
+
+.about-modal {
+  width: min(880px, 92vw);
+  max-height: 80vh;
+  overflow: auto;
+  background: linear-gradient(135deg, rgba(36,36,36,0.96), rgba(18,18,18,0.96));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  box-shadow: 0 25px 45px rgba(0,0,0,0.4);
+  color: #eee;
+}
+
+.about-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1rem;
+  background: linear-gradient(135deg, var(--solidcam-red), var(--solidcam-dark-red));
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.about-modal-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.about-close {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(38,38,38,0.9);
+  color: #f2f2f2;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.about-modal-body {
+  padding: 1rem 1.2rem 1.2rem;
+}
+
+.about-modal-body h4 {
+  margin: 1rem 0 0.4rem;
+  color: var(--solidcam-gold);
+  font-weight: 600;
+}
+
+.about-modal-body p,
+.about-modal-body li {
+  color: rgba(235,235,235,0.9);
 }
 
 tbody tr {
@@ -754,49 +852,37 @@ body.edit-mode .drop-invalid.placeholder {
 }
 
 .panel-mode-btn {
-   width: 1.2rem;
-   height: 1.2rem;
-   border-radius: 999px;
-   border: 1px solid rgba(255, 255, 255, 0.16);
-   background: rgba(0, 0, 0, 0.45);
-   background-size: 0.8rem 0.8rem;
-   background-repeat: no-repeat;
-   background-position: center;
-   display: flex;
-   align-items: center;
-   justify-content: center;
-   transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), border var(--transition-fast);
-}
-
-.panel-mode-btn[data-action="panel-add-item"] {
-  display: flex;
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(38, 38, 38, 0.9);
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Material Icons';
-  font-size: 1.1rem;
-  color: #fff;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #f2f2f2;
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), border var(--transition-fast);
 }
 
+.panel-mode-btn[data-action="panel-add-item"],
 .panel-mode-btn[data-action="panel-toggle-remove"] {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Material Icons';
-  font-size: 1.1rem;
-  color: #fff;
+  color: #f2f2f2;
 }
 
 .panel-mode-btn:hover {
-   background: var(--solidcam-red);
-   border-color: rgba(255, 255, 255, 0.35);
-   transform: translateY(-1px) scale(1.1);
-   box-shadow: 0 4px 12px rgba(200, 16, 46, 0.3);
+  background: rgba(58, 58, 58, 0.9);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
 }
 
 .panel-mode-btn.active {
-   background: linear-gradient(135deg, var(--solidcam-gold) 0%, #b8860b 100%);
-   border-color: rgba(255, 255, 255, 0.35);
-   box-shadow: 0 12px 24px rgba(212, 175, 55, 0.28);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.9), rgba(150, 115, 20, 0.9));
+  color: #1a1a1a;
+  border-color: rgba(212, 175, 55, 0.55);
 }
 
 .panel h2 {

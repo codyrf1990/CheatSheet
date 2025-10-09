@@ -113,6 +113,13 @@ export function renderApp(mount) {
   requestAnimationFrame(() => syncPanelWidths(root));
   ensureWidthSyncListener();
 
+  // Inject About overlay once per render
+  if (!root.querySelector('.about-overlay')) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = renderAboutOverlay();
+    root.appendChild(wrapper.firstElementChild);
+  }
+
   // Defensive: if the tab is backgrounded and later restored, ensure edit mode is off
   const exitEditIfNeeded = () => exitEditMode(root);
   window.addEventListener('focus', exitEditIfNeeded);
@@ -200,13 +207,45 @@ function renderPackagesTable() {
         <tr>
           <th>Package</th>
           <th>Maintenance</th>
-          <th>Included Bits</th>
+          <th class="bits-head"><span>Included Bits</span>
+            <button type="button" class="about-btn" data-action="open-about" aria-label="About this cheat sheet">
+              <img src="assets/img/about-gold-circle-23095.svg" alt="About">
+            </button>
+          </th>
         </tr>
       </thead>
       <tbody>
         ${packages.map(renderPackageRow).join('')}
       </tbody>
     </table>
+  `;
+}
+
+function renderAboutOverlay() {
+  return `
+    <div class="about-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+      <div class="about-modal">
+        <div class="about-modal-head">
+          <h3>About This Cheat Sheet</h3>
+          <button type="button" class="about-close" data-action="close-about" aria-label="Close">×</button>
+        </div>
+        <div class="about-modal-body">
+          <p>Quick guide for teammates. Use this page to pick, explain, and share SolidCAM options fast.</p>
+          <h4>What you do here</h4>
+          <ul>
+            <li><strong>Included Bits</strong>: Check the boxes you need. Groups like <em>25M</em> contain several items.</li>
+            <li><strong>+/−</strong>: Add a new bit or remove one when those modes are on.</li>
+            <li><strong>Edit Order</strong>: Turn it on to drag things where you want. Click again to save.</li>
+            <li><strong>Reset Order</strong>: Go back to the default setup (also clears custom items).</li>
+            <li><strong>Reset Checks</strong>: Unchecks everything only; your layout stays the same.</li>
+            <li><strong>Right Cards</strong>: Standalone Modules, Maintenance SKUs, and SolidWorks Maintenance work the same way.</li>
+            <li><strong>Copy</strong>: Click any code chip to copy its text (disabled while editing).</li>
+            <li><strong>Saved for you</strong>: Your changes are saved in this browser only. Use Reset Order to wipe them.</li>
+          </ul>
+          <p>If anything looks off, click Edit Order once, then click it again to save—this refreshes what’s on screen.</p>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -365,6 +404,12 @@ function handleRootClick(event, root) {
       break;
     case 'panel-remove-item':
       handlePanelRemoveItem(control, root);
+      break;
+    case 'open-about':
+      openAbout(root);
+      break;
+    case 'close-about':
+      closeAbout(root);
       break;
     default:
       break;
@@ -985,6 +1030,20 @@ function ensureWidthSyncListener() {
   };
   window.addEventListener('resize', handler);
   widthSyncListenerAttached = true;
+}
+
+function openAbout(root) {
+  const overlay = root.querySelector('.about-overlay');
+  if (!overlay) return;
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeAbout(root) {
+  const overlay = root.querySelector('.about-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
 }
 
 function buildMasterLabelLookup() {

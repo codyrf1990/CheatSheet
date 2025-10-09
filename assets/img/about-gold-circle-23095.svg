@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="256" height="256" viewBox="0 0 256 256" xml:space="preserve">
+<g style="stroke: none; stroke-width: 0; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: none; fill-rule: nonzero; opacity: 1;" transform="translate(1.4065934065934016 1.4065934065934016) scale(2.81 2.81)">
+	<linearGradient id="SVGID_1" gradientUnits="userSpaceOnUse" x1="16.1806" y1="73.0542" x2="59.6307" y2="30.7577">
+<stop offset="0%" style="stop-color:rgb(176,121,8);stop-opacity: 1"/>
+<stop offset="8.1%" style="stop-color:rgb(193,147,37);stop-opacity: 1"/>
+<stop offset="22.32%" style="stop-color:rgb(221,189,83);stop-opacity: 1"/>
+<stop offset="33.29%" style="stop-color:rgb(238,214,111);stop-opacity: 1"/>
+<stop offset="39.61%" style="stop-color:rgb(244,224,122);stop-opacity: 1"/>
+<stop offset="44.190000000000005%" style="stop-color:rgb(239,216,115);stop-opacity: 1"/>
+<stop offset="68.25%" style="stop-color:rgb(213,179,84);stop-opacity: 1"/>
+<stop offset="87.71%" style="stop-color:rgb(198,156,65);stop-opacity: 1"/>
+<stop offset="100%" style="stop-color:rgb(192,148,58);stop-opacity: 1"/>
+</linearGradient>
+<circle cx="45" cy="45" r="45" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: url(#SVGID_1); fill-rule: nonzero; opacity: 1;" transform="  matrix(1 0 0 1 0 0) "/>
+	<path d="M 44.071 27.933 c 3.037 0 5.5 -2.462 5.5 -5.5 V 22 c 0 -3.038 -2.463 -5.5 -5.5 -5.5 c -3.038 0 -5.5 2.462 -5.5 5.5 v 0.433 C 38.571 25.471 41.034 27.933 44.071 27.933 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(255,251,207); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round"/>
+	<path d="M 50.784 63.5 H 49.5 V 37.855 c 0 -2.485 -2.015 -4.5 -4.5 -4.5 h -5.784 c -2.485 0 -4.5 2.015 -4.5 4.5 s 2.015 4.5 4.5 4.5 H 40.5 V 63.5 h -1.284 c -2.485 0 -4.5 2.015 -4.5 4.5 s 2.015 4.5 4.5 4.5 h 11.568 c 2.485 0 4.5 -2.015 4.5 -4.5 S 53.27 63.5 50.784 63.5 z" style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-linejoin: miter; stroke-miterlimit: 10; fill: rgb(255,251,207); fill-rule: nonzero; opacity: 1;" transform=" matrix(1 0 0 1 0 0) " stroke-linecap="round"/>
+</g>
+</svg>
