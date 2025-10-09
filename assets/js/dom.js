@@ -240,22 +240,35 @@ function renderAboutOverlay() {
           <button type="button" class="about-close" data-action="close-about" aria-label="Close">×</button>
         </div>
         <div class="about-modal-body">
-          <p>Quick guide for teammates. Use this page to pick, explain, and share SolidCAM options fast.</p>
+          <p>Quick guide for teammates. Use this page to pick packages, prep customer comms, and generate Outlook-ready emails fast.</p>
           <h4>Sections at a glance</h4>
           <ul>
-            <li><strong>Package Bits</strong> (left): pick master groups like <em>25M</em> and individual bits.</li>
-            <li><strong>Standalone Modules</strong>, <strong>Maintenance SKUs</strong>, <strong>SolidWorks Maintenance</strong> (right): quick lists for add‑ons and maintenance. The cards stay fixed; the pills inside compress in delete mode.</li>
+            <li><strong>Package Bits</strong> (left): choose master groups such as <em>25M</em> and toggle individual bits.</li>
+            <li><strong>Standalone Modules</strong>, <strong>Maintenance SKUs</strong>, <strong>SolidWorks Maintenance</strong> (right): reference lists for add-ons and renewals. Cards stay fixed; items inside compress in delete mode.</li>
+            <li><strong>Calculator</strong>: dedicated card for quick math with one-tap percentage shortcuts.</li>
+            <li><strong>Email Templates</strong>: build, preview, and launch Outlook-ready emails with placeholder personalization.</li>
           </ul>
-          <h4>What you do here</h4>
+          <h4>Package + panel workflow</h4>
           <ul>
-            <li><strong>Included Bits</strong>: Check what you need. Groups like <em>25M</em> contain several items.</li>
-            <li><strong>+/−</strong>: Add a new bit or remove one when those modes are on.</li>
-            <li><strong>Edit Order</strong>: Turn it on to drag items; click again to save.</li>
-            <li><strong>Reset Order</strong>: Restore defaults and clear custom items.</li>
-            <li><strong>Reset Checks</strong>: Uncheck everything only; layout stays the same.</li>
-            <li><strong>Right Cards</strong>: Work the same way as Included Bits.</li>
-            <li><strong>Copy</strong>: Click any code chip to copy (disabled while editing).</li>
-            <li><strong>Saved for you</strong>: Changes save in this browser. Use Reset Order to wipe them.</li>
+            <li><strong>Included Bits</strong>: check what applies. Groups like <em>25M</em> expand to multiple items.</li>
+            <li><strong>Add / Remove Bit</strong>: enable the mode to insert or delete custom entries.</li>
+            <li><strong>Edit Order</strong>: toggle to drag modules, bits, and cards; click again to store the new order.</li>
+            <li><strong>Reset Order</strong>: restore defaults and clear custom rows.</li>
+            <li><strong>Reset Checks</strong>: uncheck everything without changing layout.</li>
+            <li><strong>Copy chips</strong>: click any code chip to copy (copying pauses while editing).</li>
+            <li><strong>Autosave</strong>: everything persists per-browser. Use Reset Order if you need a clean slate.</li>
+          </ul>
+          <h4>Calculator & quick percentages</h4>
+          <ul>
+            <li>Regular keypad supports decimals, +/- toggle, delete, and chained operations.</li>
+            <li>Quick buttons (5%–30%) fill the right column. They calculate the percentage of the current entry or, after choosing an operator, the percentage of the first operand.</li>
+          </ul>
+          <h4>Email template system</h4>
+          <ul>
+            <li><strong>Browse panel</strong>: search, pick a template, personalize placeholders, and copy or launch Outlook with subject/body pre-filled.</li>
+            <li><strong>Placeholders</strong>: required fields highlight until filled. Values stay scoped to your current session.</li>
+            <li><strong>Quick Launch</strong>: the Outlook button uses <code>mailto:</code>; if the URL gets too long, you’ll see a warning and can copy instead.</li>
+            <li><strong>Manage mode</strong>: add, edit, clone, delete, and reorder templates. Changes persist locally; Restore Defaults reloads the starter set.</li>
           </ul>
           <h4>Header Links</h4>
           <ul class="about-links">

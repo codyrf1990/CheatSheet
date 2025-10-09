@@ -15,32 +15,156 @@
     <div class="calculator-header">
       <h2>Calculator</h2>
     </div>
-    <div class="calculator">
-      <div class="calculator-display">0</div>
-      <div class="calculator-buttons">
-        <button class="calculator-button calculator-clear" data-action="clear">C</button>
-        <button class="calculator-button calculator-delete" data-action="delete">⌫</button>
-        <button class="calculator-button calculator-operation" data-operation="%">%</button>
-        <button class="calculator-button calculator-operation" data-operation="÷">÷</button>
+    <div class="calculator-shell">
+      <div class="calculator">
+        <div class="calculator-display">0</div>
+        <div class="calculator-buttons">
+          <button class="calculator-button clear" data-action="clear">AC</button>
+          <button class="calculator-button" data-action="delete">DEL</button>
+          <button class="calculator-button operation" data-action="percent">%</button>
+          <button class="calculator-button operation" data-operation="/">/</button>
 
-        <button class="calculator-button calculator-number" data-number="7">7</button>
-        <button class="calculator-button calculator-number" data-number="8">8</button>
-        <button class="calculator-button calculator-number" data-number="9">9</button>
-        <button class="calculator-button calculator-operation" data-operation="×">×</button>
+          <button class="calculator-button" data-number="7">7</button>
+          <button class="calculator-button" data-number="8">8</button>
+          <button class="calculator-button" data-number="9">9</button>
+          <button class="calculator-button operation" data-operation="*">x</button>
 
-        <button class="calculator-button calculator-number" data-number="4">4</button>
-        <button class="calculator-button calculator-number" data-number="5">5</button>
-        <button class="calculator-button calculator-number" data-number="6">6</button>
-        <button class="calculator-button calculator-operation" data-operation="-">-</button>
+          <button class="calculator-button" data-number="4">4</button>
+          <button class="calculator-button" data-number="5">5</button>
+          <button class="calculator-button" data-number="6">6</button>
+          <button class="calculator-button operation" data-operation="-">-</button>
 
-        <button class="calculator-button calculator-number" data-number="1">1</button>
-        <button class="calculator-button calculator-number" data-number="2">2</button>
-        <button class="calculator-button calculator-number" data-number="3">3</button>
-        <button class="calculator-button calculator-operation" data-operation="+">+</button>
+          <button class="calculator-button" data-number="1">1</button>
+          <button class="calculator-button" data-number="2">2</button>
+          <button class="calculator-button" data-number="3">3</button>
+          <button class="calculator-button operation" data-operation="+">+</button>
 
-        <button class="calculator-button calculator-number zero" data-number="0">0</button>
-        <button class="calculator-button calculator-decimal" data-action="decimal">.</button>
-        <button class="calculator-button calculator-equals" data-action="equals">=</button>
+          <button class="calculator-button" data-action="sign">+/-</button>
+          <button class="calculator-button" data-number="0">0</button>
+          <button class="calculator-button" data-action="decimal">.</button>
+          <button class="calculator-button equals" data-action="equals">=</button>
+        </div>
+        <div class="calculator-quick-row" aria-label="Quick percentage buttons">
+          <button class="calculator-quick-button" type="button" data-percent="5">5%</button>
+          <button class="calculator-quick-button" type="button" data-percent="10">10%</button>
+          <button class="calculator-quick-button" type="button" data-percent="15">15%</button>
+          <button class="calculator-quick-button" type="button" data-percent="20">20%</button>
+          <button class="calculator-quick-button" type="button" data-percent="25">25%</button>
+          <button class="calculator-quick-button" type="button" data-percent="30">30%</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="email-template-section" aria-label="Email Templates">
+    <div class="email-template-card">
+      <div class="email-template-card__header">
+        <div>
+          <h3>Email Templates</h3>
+          <p class="email-template-card__subtitle">Launch personalized Outlook drafts in a click.</p>
+        </div>
+        <div class="email-template-card__header-actions">
+          <button class="email-template-btn" data-action="toggle-manage" type="button">Manage</button>
+        </div>
+      </div>
+      <div class="email-template-toast" data-template-toast hidden></div>
+
+      <div class="email-template-view" data-mode="browse">
+        <div class="email-template-layout">
+          <aside class="email-template-sidebar">
+            <label class="email-template-field">
+              <span class="email-template-field__label">Search</span>
+              <input type="search" placeholder="Search templates" data-field="search">
+            </label>
+            <div class="email-template-list" data-template-list role="listbox" aria-label="Available email templates"></div>
+          </aside>
+          <div class="email-template-main">
+            <div class="email-template-main-grid">
+              <div class="email-template-preview">
+                <div class="email-template-preview__empty" data-preview-empty>
+                  Select a template to preview and personalize it.
+                </div>
+                <div class="email-template-preview__content" data-preview-content hidden>
+                  <header class="email-template-preview__header">
+                    <div>
+                      <h4 data-preview-title></h4>
+                      <p class="email-template-preview__meta" data-preview-tags></p>
+                    </div>
+                    <div class="email-template-preview__actions">
+                      <button class="email-template-btn" data-action="copy-subject" type="button">Copy Subject</button>
+                      <button class="email-template-btn" data-action="copy-body" type="button">Copy Body</button>
+                    </div>
+                  </header>
+                  <div class="email-template-preview__subject">
+                    <span class="email-template-preview__label">Subject</span>
+                    <div class="email-template-preview__value" data-preview-subject></div>
+                  </div>
+                  <div class="email-template-preview__body">
+                    <span class="email-template-preview__label">Body</span>
+                    <pre data-preview-body></pre>
+                  </div>
+                  <div class="email-template-preview__footer">
+                    <button class="email-template-btn email-template-btn--primary" data-action="launch-outlook" type="button" disabled>Launch in Outlook</button>
+                    <p class="email-template-preview__warning" data-preview-warning hidden></p>
+                    <p class="email-template-preview__note">
+                      Outlook fills the subject and body; your signature is added automatically.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <aside class="email-template-personalize">
+                <div class="email-template-personalize__header">
+                  <h4>Personalize</h4>
+                  <p class="email-template-personalize__note" data-placeholder-note>
+                    Complete these fields to merge details into the email.
+                  </p>
+                </div>
+                <div class="email-template-personalize__body" data-placeholder-list></div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="email-template-manage" data-mode="manage" hidden>
+        <div class="email-template-manage__controls">
+          <button class="email-template-btn email-template-btn--primary" data-action="new-template" type="button">New Template</button>
+          <button class="email-template-btn" data-action="reset-defaults" type="button">Restore Defaults</button>
+        </div>
+        <div class="email-template-manage__layout">
+          <div class="email-template-manage__list" data-manage-list></div>
+          <form class="email-template-form" data-template-form>
+            <input type="hidden" data-field="id">
+            <div class="email-template-form__field">
+              <label>
+                <span>Name</span>
+                <input type="text" data-field="name" required>
+              </label>
+            </div>
+            <div class="email-template-form__field">
+              <label>
+                <span>Subject</span>
+                <input type="text" data-field="subject" required>
+              </label>
+            </div>
+            <div class="email-template-form__field">
+              <label>
+                <span>Body</span>
+                <textarea data-field="body" rows="8" required></textarea>
+              </label>
+            </div>
+            <div class="email-template-form__field">
+              <label>
+                <span>Tags (comma separated)</span>
+                <input type="text" data-field="tags">
+              </label>
+            </div>
+            <div class="email-template-form__footer">
+              <button class="email-template-btn" data-action="discard-template" type="button">Discard</button>
+              <button class="email-template-btn email-template-btn--primary" data-action="save-template" type="submit">Save Template</button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   </section>
@@ -48,4 +172,3 @@
   <script type="module" src="assets/js/app.js"></script>
 </body>
 </html>
-
