@@ -371,33 +371,80 @@ function renderAboutOverlay() {
           <p>Quick guide for teammates. Use this page to pick packages, prep customer comms, and generate Outlook-ready emails fast.</p>
           <h4>Sections at a glance</h4>
           <ul>
-            <li><strong>Package Bits</strong> (left): choose master groups such as <em>25M</em> and toggle individual bits.</li>
-            <li><strong>Standalone Modules</strong>, <strong>Maintenance SKUs</strong>, <strong>SolidWorks Maintenance</strong> (right): reference lists for add-ons and renewals. Cards stay fixed; items inside compress in delete mode.</li>
-            <li><strong>Calculator</strong>: dedicated card for quick math with one-tap percentage shortcuts.</li>
-            <li><strong>Email Templates</strong>: build, preview, and launch Outlook-ready emails with placeholder personalization.</li>
+            <li><strong>Package Bits</strong> (left column): pick master groups such as <em>25M</em>, expand their items, and toggle individual bits.</li>
+            <li><strong>Right-hand panels</strong> (<em>Standalone Modules</em>, <em>Maintenance SKUs</em>, <em>SolidWorks Maintenance</em>): quick-reference lists for add-ons and renewals. The cards stay fixed; rows compress when delete mode is active.</li>
+            <li><strong>Calculator</strong>: fast math plus one-tap percentage shortcuts, anchored under the maintenance panels.</li>
+            <li><strong>Email Templates</strong>: build, preview, and launch Outlook-ready drafts with placeholder personalization.</li>
           </ul>
-          <h4>Package + panel workflow</h4>
+          <h4>Package & panel workflow</h4>
           <ul>
-            <li><strong>Included Bits</strong>: check what applies. Groups like <em>25M</em> expand to multiple items.</li>
-            <li><strong>Add / Remove Bit</strong>: enable the mode to insert or delete custom entries.</li>
-            <li><strong>Edit Order</strong>: toggle to drag modules, bits, and cards; click again to store the new order.</li>
-            <li><strong>Reset Order</strong>: restore defaults and clear custom rows.</li>
-            <li><strong>Reset Checks</strong>: uncheck everything without changing layout.</li>
-            <li><strong>Copy chips</strong>: click any code chip to copy (copying pauses while editing).</li>
-            <li><strong>Autosave</strong>: everything persists per-browser. Use Reset Order if you need a clean slate.</li>
+            <li><strong>Included Bits</strong>: tick the bits that apply. Master groups like <em>25M</em> expand to show all bundled items.</li>
+            <li><strong>Add / Remove Bit</strong>: switch modes to insert or delete custom entries inside a package list.</li>
+            <li><strong>Edit Order</strong>: toggles drag-and-drop across packages, loose bits, and reference panels; click again to save the layout.</li>
+            <li><strong>Reset Order</strong>: restore the default ordering and remove custom rows.</li>
+            <li><strong>Reset Checks</strong>: clear every checkbox without touching layout or custom rows.</li>
+            <li><strong>Copy chips</strong>: click any code chip to copy—copying pauses automatically while editing.</li>
+            <li><strong>Autosave</strong>: selections and layout persist per browser profile; use Reset Order for a clean slate.</li>
           </ul>
           <h4>Calculator & quick percentages</h4>
           <ul>
-            <li>Regular keypad supports decimals, +/- toggle, delete, and chained operations.</li>
-            <li>Quick buttons (5%–30%) fill the right column. They calculate the percentage of the current entry or, after choosing an operator, the percentage of the first operand.</li>
+            <li>Keypad supports decimals, <code>+/−</code>, delete/backspace, and chained operations.</li>
+            <li>Layout: the <strong>=</strong> key sits beneath <strong>+</strong> and spans two rows. Quick percentage buttons (5%–30%) sit along the bottom row under <code>+/−</code>, <code>0</code>, and <code>.</code>.</li>
+            <li>Behavior: after pressing <strong>=</strong>, entering a number starts fresh; choosing an operator continues using the previous result.</li>
+            <li>Quick % buttons calculate against the current entry, or—once you pick an operator—the first operand.</li>
           </ul>
           <h4>Email template system</h4>
           <ul>
-            <li><strong>Browse panel</strong>: search, pick a template, personalize placeholders, and copy or launch Outlook with subject/body pre-filled.</li>
-            <li><strong>Placeholders</strong>: required fields highlight until filled. Values stay scoped to your current session.</li>
-            <li><strong>Quick Launch</strong>: the Outlook button uses <code>mailto:</code>; if the URL gets too long, you’ll see a warning and can copy instead.</li>
-            <li><strong>Manage mode</strong>: add, edit, clone, delete, and reorder templates. Changes persist locally; Restore Defaults reloads the starter set.</li>
+            <li><strong>Browse panel</strong>: search templates, select one, personalize the placeholders, and copy or launch Outlook with subject/body pre-filled.</li>
+            <li><strong>Placeholders</strong>: required fields highlight until filled. Values remain scoped to your session.</li>
+            <li><strong>Quick Launch</strong>: the Outlook button uses <code>mailto:</code>; if content exceeds the size limit you’ll get a warning and can copy instead.</li>
+            <li><strong>Manage mode</strong>: add, edit, clone, delete, and reorder templates via the hover move arrows. Changes persist locally; Restore Defaults reloads the starter set.</li>
           </ul>
+          <h4>Maintenance Specialist Notes</h4>
+          <p><strong>Important Technical Discovery — Hardware Dongle Network Licenses</strong></p>
+          <ul>
+            <li>For network hardware dongles (Mini USB or Mini Ethernet), renewals must be based on <strong>profiles</strong>, not buckets.</li>
+            <li>Product key network licenses can continue to use bucket-based renewals.</li>
+            <li>This impacts existing estimates built against buckets — revise them when a hardware dongle is confirmed.</li>
+          </ul>
+          <p><strong>SW Pro Net licensing quirk:</strong> accounts can show three dongles, but only one is the primary SolidWorks key.</p>
+          <p><strong>Sim 5x Level Logic — Concise Reference (Profile-based dongles only)</strong></p>
+          <table class="about-note-table" aria-label="Sim 5x level mapping">
+            <thead>
+              <tr>
+                <th scope="col">Sim 5x Bit</th>
+                <th scope="col">Sim 5x Level</th>
+                <th scope="col">Maps To</th>
+                <th scope="col">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>0</strong></td>
+                <td>Any</td>
+                <td>None</td>
+                <td>Bit disabled — ignore level.</td>
+              </tr>
+              <tr>
+                <td><strong>1</strong></td>
+                <td>"3 Axis" or "1"</td>
+                <td><strong>SC-HSS-Maint</strong> only</td>
+                <td>Restricted to 3-axis HSS.</td>
+              </tr>
+              <tr>
+                <td><strong>1</strong></td>
+                <td>"3/4 Axis"</td>
+                <td><strong>SC-HSS-Maint</strong> + <strong>SC-Sim4x-Maint</strong></td>
+                <td>Allows 4-axis simultaneous.</td>
+              </tr>
+              <tr>
+                <td><strong>1</strong></td>
+                <td>Blank / empty</td>
+                <td>Check all 5-axis bits</td>
+                <td>Unrestricted — follow package default logic.</td>
+              </tr>
+            </tbody>
+          </table>
           <h4>Header Links</h4>
           <ul class="about-links">
             ${linksMarkup}

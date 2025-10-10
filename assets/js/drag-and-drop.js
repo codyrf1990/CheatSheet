@@ -126,16 +126,14 @@ function canDropHere(target) {
 
      // Allow drop if:
      // 1. Scopes match exactly
-     // 2. Target has no scope restriction (panels)
-     // 3. Both are package-related scopes (more flexible)
-     if (!sourceScope || !targetScope) return true;
-     if (sourceScope === targetScope) return true;
+     if (sourceScope && targetScope && sourceScope === targetScope) return true;
 
-     // Allow movement between package-related containers
+     // 2. One of the scopes is undefined or empty (unscoped container)
+     if (!sourceScope || !targetScope) return true;
+
+     // 3. Both containers are package scopes
      const packageScopes = ['package-bits', 'standalone-modules', 'maintenance-skus'];
-     if (packageScopes.includes(sourceScope) && packageScopes.includes(targetScope)) {
-       return true;
-     }
+     if (packageScopes.includes(sourceScope) && packageScopes.includes(targetScope)) return true;
 
      return false;
    }
@@ -144,7 +142,6 @@ function canDropHere(target) {
 }
 
 function updateDropZoneVisuals() {
-   // Clear all previous invalid states
    document.querySelectorAll('.drop-invalid').forEach(el => {
      el.classList.remove('drop-invalid');
    });

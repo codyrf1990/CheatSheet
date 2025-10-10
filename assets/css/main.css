@@ -280,7 +280,7 @@ main {
 .table-column {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.52rem; /* -20% */
 }
 
 
@@ -355,7 +355,7 @@ table {
 
 thead th {
   text-align: left;
-  padding: 0.7rem 0.75rem;
+  padding: 0.56rem 0.6rem; /* -20% height */
   background: linear-gradient(135deg, var(--solidcam-red), var(--solidcam-dark-red));
   text-transform: uppercase;
   font-size: 0.8rem;
@@ -481,6 +481,39 @@ thead th {
   border-bottom-color: rgba(212, 175, 55, 0.9);
 }
 
+.about-modal-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.6rem 0 1rem;
+  font-size: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.about-modal-body th,
+.about-modal-body td {
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  text-align: left;
+}
+
+.about-modal-body th {
+  background: rgba(212, 175, 55, 0.15);
+  color: var(--solidcam-gold);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.about-modal-body tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.about-modal-body tbody tr:last-child td {
+  border-bottom: none;
+}
+
 tbody tr {
   transition: background var(--transition-fast);
 }
@@ -494,7 +527,7 @@ tbody tr:hover {
 }
 
 tbody td {
-  padding: 0.6rem 0.65rem;
+  padding: 0.48rem 0.52rem; /* -20% */
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   vertical-align: top;
 }
@@ -508,7 +541,7 @@ tbody td {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.32rem; /* -20% */
 }
 
 .package-add-row-btn {
@@ -686,7 +719,7 @@ td.pkg span {
 
 .bits-layout {
   display: flex;
-  gap: 0.65rem;
+  gap: 0.52rem; /* -20% */
   align-items: flex-start;
   flex-wrap: wrap;
   width: 100%;
@@ -698,14 +731,14 @@ td.pkg span {
 
 .group-column {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.36rem; /* -20% */
   flex: 1 1 260px;
 }
 
 .master-bit {
   background: rgba(255, 255, 255, 0.03);
   border-radius: 12px;
-  padding: 0.4rem 0.48rem;
+  padding: 0.32rem 0.384rem; /* -20% */
   border: 1px solid rgba(255, 255, 255, 0.06);
   box-shadow: var(--shadow-sm);
 }
@@ -729,9 +762,9 @@ td.pkg span {
 .sub-bits {
   list-style: none;
   margin: 0.32rem 0 0;
-  padding: 0.18rem;
+  padding: 0.144rem; /* -20% */
   display: grid;
-  gap: 0.35rem;
+  gap: 0.28rem; /* -20% */
   grid-template-columns: repeat(3, minmax(0, 1fr));
   min-height: 1.8rem;
   border: 1px solid transparent;
@@ -743,12 +776,20 @@ td.pkg span {
   display: inline-flex;
   gap: 0.3rem;
   align-items: center;
-  background: rgba(255, 255, 255, 0.035);
-  padding: 0.26rem 0.3rem;
-  border-radius: 6px;
+  background: transparent; /* remove glass effect inside master groups */
+  padding: 0.208rem 0.24rem; /* keep compact spacing */
+  border-radius: 4px;
+  border: none;
+  box-shadow: none;
   font-size: 0.68rem;
-  color: rgba(240, 240, 240, 0.85);
-  transition: background var(--transition-fast);
+  color: rgba(240, 240, 240, 0.9);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+/* Keep the subtle glass look on loose bits (e.g., HSS) even in edit/remove modes */
+body.edit-mode .bits li label,
+.package-remove-mode .bits li label {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .sub-bits li label:hover {
@@ -759,9 +800,9 @@ td.pkg span {
 .bits {
   list-style: none;
   margin: 0;
-  padding: 0.18rem;
+  padding: 0.144rem; /* -20% */
   display: grid;
-  gap: 0.3rem;
+  gap: 0.24rem; /* -20% */
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   flex: 1 1 240px;
   min-height: 1.8rem;
@@ -775,7 +816,7 @@ td.pkg span {
   align-items: center;
   gap: 0.32rem;
   background: rgba(255, 255, 255, 0.03);
-  padding: 0.3rem 0.34rem;
+  padding: 0.24rem 0.272rem; /* -20% */
   border-radius: 6px;
   font-size: 0.72rem;
   color: rgba(240, 240, 240, 0.86);
@@ -826,7 +867,7 @@ body.edit-mode .drop-invalid.placeholder {
   display: grid;
   grid-template-columns: 1fr; /* make right-column cards fill available width */
   grid-auto-rows: auto;
-  gap: 0.75rem;
+  gap: 0.6rem; /* -20% */
   justify-content: stretch;
   align-items: stretch;
 }
@@ -834,8 +875,8 @@ body.edit-mode .drop-invalid.placeholder {
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.6rem;
+  gap: 0.44rem; /* -20% */
+  padding: 0.48rem; /* -20% */
   background: linear-gradient(135deg, rgba(36, 36, 36, 0.95), rgba(20, 20, 20, 0.9));
   border: 1px solid rgba(255, 255, 255, 0.055);
   border-radius: 14px;
@@ -854,17 +895,55 @@ body.edit-mode .drop-invalid.placeholder {
   max-width: 100%;
 }
 
+.panel[data-panel="maintenance-combined"],
+.panel[data-panel="calculator"] {
+  width: 22rem;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  justify-self: center;
+}
+
+/* Maintenance SKUs card – shrink height by ~20% beyond global panel compaction */
+.panel[data-panel="maintenance-combined"] {
+  padding: 0.3072rem; /* additional -20% */
+  gap: 0.2816rem;    /* additional -20% */
+}
+
+.panel[data-panel="maintenance-combined"] .panel-head {
+  gap: 0.256rem; /* additional -20% */
+}
+
+.panel[data-panel="maintenance-combined"] .panel-controls {
+  gap: 0.1792rem; /* additional -20% */
+}
+
+.panel[data-panel="maintenance-combined"] ul {
+  padding: 0.06144rem;   /* additional -20% */
+  gap: 0.11264rem;       /* additional -20% */
+  min-height: 0.8192rem; /* additional -20% */
+}
+
+.panel[data-panel="maintenance-combined"] li {
+  padding: 0.12288rem 0.2048rem; /* additional -20% */
+  gap: 0.1792rem;                /* additional -20% */
+}
+
+.panel[data-panel="maintenance-combined"] li code {
+  padding: 0.0768rem 0.192rem; /* additional -20% */
+}
+
 .panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.4rem; /* -20% */
 }
 
 .panel-controls {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.28rem; /* -20% */
 }
 
 .panel-mode-btn {
@@ -912,12 +991,12 @@ body.edit-mode .drop-invalid.placeholder {
 .panel ul {
   list-style: none;
   margin: 0;
-  padding: 0.12rem;
+  padding: 0.096rem; /* -20% */
   display: grid;
-  gap: 0.22rem;
+  gap: 0.176rem; /* -20% */
   grid-template-columns: repeat(2, max-content);
   justify-content: center;
-  min-height: 1.6rem;
+  min-height: 1.28rem; /* -20% */
   border: 1px solid transparent;
   border-radius: 12px;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
@@ -961,9 +1040,9 @@ body.edit-mode .drop-invalid.placeholder {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.35rem;
+  gap: 0.28rem; /* -20% */
   background: transparent; /* remove faint white pill background in right cards */
-  padding: 0.24rem 0.4rem;
+  padding: 0.192rem 0.32rem; /* -20% */
   border-radius: 999px;
   transition: background var(--transition-fast), transform var(--transition-fast);
 }
@@ -1288,13 +1367,13 @@ body.edit-mode .panel li:hover {
   grid-column: 1;
   background: linear-gradient(135deg, var(--solidcam-dark), rgba(26, 26, 26, 0.95));
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding: 0.77rem; /* ~30% height reduction */
+  padding: 0.38rem; /* additional ~30% reduction */
   text-align: right;
-  font-size: 1.4rem; /* ~30% smaller */
+  font-size: 1.85rem; /* another +15% */
   font-weight: 300;
   color: var(--text-primary);
   font-family: var(--font-mono);
-  min-height: 2.275rem; /* ~30% shorter */
+  min-height: 1.11rem; /* additional ~30% shorter */
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -1318,9 +1397,9 @@ body.edit-mode .panel li:hover {
   background: linear-gradient(135deg, rgba(45, 45, 45, 0.9), rgba(35, 35, 35, 0.9));
   border: none;
   color: var(--text-primary);
-  font-size: 0.77rem; /* ~30% smaller */
+  font-size: 1.224rem; /* +20% text size (except % overrides below) */
   font-weight: 500;
-  padding: 0.56rem; /* ~30% less padding */
+  padding: 0.28rem; /* +15% height adjustment */
   cursor: pointer;
   transition: all var(--transition-smooth);
   position: relative;
@@ -1328,7 +1407,8 @@ body.edit-mode .panel li:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.24rem; /* ~30% shorter */
+  min-height: 1.14rem; /* +15% height adjustment */
+  line-height: 1;
 }
 
 .calculator-button::before {
@@ -1414,12 +1494,12 @@ body.edit-mode .panel li:hover {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   grid-auto-rows: 1fr;
-  gap: 0.21rem; /* ~30% tighter */
+  gap: 0.10rem; /* additional ~30% tighter */
   align-content: stretch;
   justify-items: stretch;
   align-items: stretch;
   height: 100%;
-  padding: 0.245rem; /* ~30% tighter */
+  padding: 0.12rem; /* additional ~30% tighter */
   background: rgba(255, 255, 255, 0.04);
   border-left: 0;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -1432,7 +1512,7 @@ body.edit-mode .panel li:hover {
   background: linear-gradient(135deg, rgba(200, 16, 46, 0.18), rgba(139, 0, 0, 0.18));
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 0.6rem; /* ~30% smaller */
+  font-size: 0.79rem; /* another +15% */
   font-weight: 600;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -1441,8 +1521,14 @@ body.edit-mode .panel li:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.42rem; /* ~30% less padding */
+  padding: 0.207rem; /* +15% height adjustment */
   height: 100%;
+  line-height: 1;
+}
+
+/* Do not enlarge the % operator label */
+.calculator-button[data-action="percent"] {
+  font-size: 1.02rem;
 }
 
 .calculator-quick-button:hover {
@@ -1520,21 +1606,21 @@ body.edit-mode .panel li:hover {
 }
 
 .email-template-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(16, 16, 16, 0.98));
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: var(--shadow-lg);
-  padding: clamp(0.9rem, 2vw, 1.2rem);
-  width: 100%;
-  max-width: 100%;
+   display: flex;
+   flex-direction: column;
+   gap: 0.9rem;
+   background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(16, 16, 16, 0.98));
+   border-radius: 14px;
+   border: 1px solid rgba(255, 255, 255, 0.06);
+   box-shadow: var(--shadow-lg);
+   padding: clamp(0.9rem, 2vw, 1.2rem);
+   width: 100%;
+   max-width: 100%;
 }
 
 .email-template-card__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
 }
@@ -1559,64 +1645,88 @@ body.edit-mode .panel li:hover {
 }
 
 .email-template-toast {
-  padding: 0.65rem 0.9rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
-  font-size: 0.8rem;
-  color: var(--text-primary);
+   padding: 0.6rem 0.9rem;
+   border-radius: var(--radius-sm);
+   border: 1px solid rgba(200, 16, 46, 0.6);
+   background: linear-gradient(135deg, rgba(200,16,46,0.9), rgba(139,0,0,0.9));
+   color: #fff;
+   font-size: 0.8rem;
+   font-weight: 500;
+   box-shadow: 0 12px 30px rgba(200,16,46,0.4);
+   backdrop-filter: blur(8px);
+   letter-spacing: 0.02em;
 }
 
-.email-template-toast--success {
-  border-color: rgba(46, 204, 113, 0.45);
-  background: rgba(46, 204, 113, 0.18);
-}
-
-.email-template-toast--error {
-  border-color: rgba(200, 16, 46, 0.45);
-  background: rgba(200, 16, 46, 0.2);
-}
-
+/* All variants red for consistency */
+.email-template-toast--success,
+.email-template-toast--error,
 .email-template-toast--warning {
-  border-color: rgba(212, 175, 55, 0.45);
-  background: rgba(212, 175, 55, 0.18);
+  border-color: rgba(200, 16, 46, 0.55);
+  background: linear-gradient(135deg, rgba(200,16,46,0.85), rgba(139,0,0,0.85));
+}
+
+/* Inset toast positioned near footer buttons without shifting layout */
+.email-template-form__footer { position: relative; }
+.email-template-toast--inset {
+   position: absolute;
+   left: 0;
+   top: 50%;
+   transform: translateY(-50%) translateX(-8px);
+   opacity: 0;
+   pointer-events: none;
+   white-space: nowrap;
+   transition: all 250ms ease;
+   z-index: 10;
+}
+.email-template-toast--inset.is-visible {
+   opacity: 1;
+   transform: translateY(-50%) translateX(0);
 }
 
 .email-template-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
-  gap: 1.2rem;
-  align-items: stretch;
+   display: grid;
+   grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+   gap: 1.2rem;
+   align-items: stretch;
+   height: 100%;
 }
 
 .email-template-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.85rem;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;
+   padding: 0.85rem;
+   border-radius: var(--radius-md);
+   border: 1px solid rgba(255, 255, 255, 0.08);
+   background: rgba(255, 255, 255, 0.02);
+   height: 100%;
+   min-height: 50vh;
+   max-height: 75vh;
+   flex: 0 1 auto;
+   align-self: start;
 }
 
 .email-template-btn {
-  appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 0.85rem;
-  font-weight: 500;
-  padding: 0.55rem 1rem;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: background var(--transition-smooth), border var(--transition-smooth), transform var(--transition-smooth);
+   appearance: none;
+   border: 1px solid rgba(255, 255, 255, 0.15);
+   background: rgba(255, 255, 255, 0.05);
+   color: var(--text-primary);
+   font-family: inherit;
+   font-size: 0.85rem;
+   font-weight: 500;
+   padding: 0.6rem 1.1rem;
+   border-radius: var(--radius-md);
+   cursor: pointer;
+   transition: all var(--transition-smooth);
+   position: relative;
+   overflow: hidden;
 }
 
 .email-template-btn:hover {
-  background: rgba(200, 16, 46, 0.18);
-  border-color: rgba(200, 16, 46, 0.4);
-  transform: translateY(-1px);
+   background: rgba(200, 16, 46, 0.2);
+   border-color: rgba(200, 16, 46, 0.5);
+   transform: translateY(-1px);
+   box-shadow: 0 4px 12px rgba(200, 16, 46, 0.3);
 }
 
 .email-template-btn:disabled {
@@ -1635,10 +1745,37 @@ body.edit-mode .panel li:hover {
   background: linear-gradient(135deg, var(--solidcam-red), #650000);
 }
 
+/* Ghost and XS buttons for inline copy controls */
+.email-template-btn--ghost {
+   background: transparent;
+   border: 1px solid rgba(255,255,255,0.15);
+   color: var(--text-secondary);
+}
+.email-template-btn--ghost:hover {
+   background: rgba(255,255,255,0.08);
+   border-color: rgba(255,255,255,0.3);
+   color: var(--text-primary);
+   transform: translateY(-1px);
+}
+.email-template-btn--xs {
+   font-size: 0.72rem;
+   padding: 0.25rem 0.5rem;
+   border-radius: 8px;
+}
+.email-template-btn--icon {
+   width: 1.6rem;
+   height: 1.6rem;
+   padding: 0;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   border-radius: var(--radius-sm);
+}
+
 .email-template-view {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
+   display: flex;
+   flex-direction: column;
+   gap: 0.9rem;
 }
 
 .email-template-field {
@@ -1655,6 +1792,48 @@ body.edit-mode .panel li:hover {
   letter-spacing: 0.08em;
 }
 
+/* Filters (chips) */
+.email-template-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.email-template-filters__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.email-template-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.22rem 0.55rem;
+  border: 1px solid var(--solidcam-border);
+  background: rgba(255,255,255,0.05);
+  border-radius: 999px;
+  font-size: 0.72rem;
+}
+.email-template-chip button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.email-template-filters__add-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.4rem;
+}
+.email-template-filters__add-row input[type="text"] {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+}
+
 .email-template-field input[type="search"] {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1669,12 +1848,14 @@ body.edit-mode .panel li:hover {
 }
 
 .email-template-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  padding-right: 0.35rem;
-  max-height: 320px;
-  overflow-y: auto;
+   display: flex;
+   flex-direction: column;
+   gap: 0.6rem;
+   padding-right: 0.35rem;
+   flex: 1 1 auto;
+   min-height: 200px;
+   overflow-y: auto;
+   max-height: calc(75vh - 6rem);
 }
 
 .email-template-list::-webkit-scrollbar {
@@ -1687,24 +1868,70 @@ body.edit-mode .panel li:hover {
 }
 
 .email-template-item {
-  border: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  padding: 0.8rem 1rem;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.02);
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  transition: border var(--transition-smooth), background var(--transition-smooth), transform var(--transition-smooth);
+   position: relative;
+   border: none;
+   display: flex;
+   flex-direction: column;
+   gap: 0.35rem;
+   padding: 0.8rem 2.25rem 0.8rem 1.5rem;
+   border-radius: var(--radius-md);
+   border: 1px solid rgba(255, 255, 255, 0.06);
+   background: rgba(255, 255, 255, 0.02);
+   cursor: pointer;
+   width: 100%;
+   text-align: left;
+   transition: border var(--transition-smooth), background var(--transition-smooth), transform var(--transition-smooth);
+   user-select: none;
 }
 
 .email-template-item:hover {
   border-color: rgba(200, 16, 46, 0.4);
   background: rgba(200, 16, 46, 0.12);
   transform: translateY(-1px);
+}
+
+.email-template-item__move {
+  position: absolute;
+  top: 50%;
+  right: 4.5rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.email-template-item:hover .email-template-item__move,
+.email-template-item:focus-within .email-template-item__move {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.email-template-move-btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  width: 1.35rem;
+  height: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border var(--transition-fast), opacity var(--transition-fast);
+}
+
+.email-template-move-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+}
+
+.email-template-move-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .email-template-item.is-active {
@@ -1714,19 +1941,62 @@ body.edit-mode .panel li:hover {
 }
 
 .email-template-item:focus-visible {
-  outline: 2px solid var(--solidcam-gold);
-  outline-offset: 2px;
+   outline: 2px solid var(--solidcam-gold);
+   outline-offset: 2px;
+}
+
+/* Enhanced focus indicators */
+.email-template-btn:focus-visible,
+.email-template-row-btn:focus-visible {
+   outline: 2px solid var(--solidcam-gold);
+   outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+   .email-template-btn {
+     border-width: 2px;
+   }
+
+   .email-template-item {
+     border-width: 2px;
+   }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+   .email-template-btn,
+   .email-template-item,
+   .email-template-toast--inset {
+     transition: none;
+   }
+
+   .email-template-toast--inset.is-visible {
+     transition: opacity 100ms ease;
+   }
 }
 
 .email-template-item__title {
-  font-weight: 600;
-  font-size: 0.95rem;
+   font-weight: 600;
+   font-size: 1rem;
+   color: var(--solidcam-red);
+   line-height: 1.3;
+   margin-bottom: 0.2rem;
+}
+/* Keep title red across states to match Launch button */
+.email-template-item:hover .email-template-item__title,
+.email-template-item.is-active .email-template-item__title {
+   color: var(--solidcam-red);
 }
 
 .email-template-item__meta {
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
+
+/* Prevent overlap with row action buttons */
+.email-template-item__title,
+.email-template-item__meta { padding-right: 4.2rem; }
 
 .email-template-preview {
   background: linear-gradient(135deg, rgba(24, 24, 24, 0.96), rgba(12, 12, 12, 0.96));
@@ -1738,6 +2008,52 @@ body.edit-mode .panel li:hover {
   gap: 0.85rem;
   min-height: 320px;
 }
+
+/* Compose area (single edit/preview) */
+.email-template-compose {
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;
+   min-height: 65vh;
+   height: 100%;
+   padding: 1rem;
+   background: rgba(255, 255, 255, 0.02);
+   border-radius: var(--radius-md);
+   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.email-template-compose__header {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   gap: 0.8rem;
+   padding-bottom: 0.5rem;
+   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+   margin-bottom: 1rem;
+}
+.email-template-compose__title-wrap { flex: 1 1 auto; }
+.email-template-compose__name {
+   display: block;
+   width: 100%;
+   font-size: clamp(1.1rem, 1.8vw, 1.3rem);
+   font-weight: 600;
+   border: 0;
+   background: transparent;
+   color: var(--text-primary);
+   padding: 0.4rem 0.2rem;
+   line-height: 1.35;
+   margin: 0;
+   border-bottom: 2px solid transparent;
+   transition: border-color var(--transition-fast);
+}
+.email-template-compose__name:focus {
+   border-bottom-color: var(--solidcam-gold);
+   outline: none;
+}
+.email-template-compose__name::placeholder { color: var(--text-secondary); }
+.email-template-compose__meta { margin: 0.35rem 0 0; color: var(--text-muted); font-size: 0.85rem; }
+.email-template-compose__actions { display: flex; gap: 0.3rem; flex-wrap: nowrap; align-items: center; }
+.email-template-compose__actions .email-template-btn { font-weight: 600; padding: 0.52rem 0.9rem; }
+.email-template-card__header-actions .email-template-btn { padding: 0.52rem 0.9rem; font-weight: 600; }
 
 .email-template-preview__empty {
   flex: 1;
@@ -1777,6 +2093,9 @@ body.edit-mode .panel li:hover {
   gap: 0.5rem;
   flex-wrap: wrap;
 }
+
+/* Inline label row for subject/body with small copy buttons */
+.email-template-label-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 
 .email-template-placeholder {
   display: flex;
@@ -1846,11 +2165,15 @@ body.edit-mode .panel li:hover {
   gap: 0.5rem;
 }
 
+.email-template-main {
+   height: 100%;
+}
+
 .email-template-main-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.85fr);
-  gap: 1rem;
-  align-items: stretch;
+   display: grid;
+   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.85fr);
+   gap: 1rem;
+   align-items: stretch;
 }
 
 .email-template-personalize {
@@ -1980,13 +2303,16 @@ body.edit-mode .panel li:hover {
 }
 
 .email-template-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-  padding: 0.85rem;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+   display: flex;
+   flex-direction: column;
+   gap: 0.85rem;
+   flex: 1 1 auto;
+   min-height: 0;
+   height: 100%;
+   padding: 0.85rem;
+   border-radius: var(--radius-md);
+   border: 1px solid rgba(255, 255, 255, 0.08);
+   background: rgba(255, 255, 255, 0.02);
 }
 
 .email-template-form__field label {
@@ -1997,20 +2323,55 @@ body.edit-mode .panel li:hover {
   color: var(--text-secondary);
 }
 
+.email-template-form__field--body label {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .email-template-form input,
 .email-template-form textarea {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.25);
-  color: var(--text-primary);
-  font-size: 0.95rem;
-  padding: 0.6rem 0.8rem;
-  font-family: inherit;
+   border: 1px solid rgba(255, 255, 255, 0.12);
+   border-radius: var(--radius-sm);
+   background: rgba(0, 0, 0, 0.3);
+   color: var(--text-primary);
+   font-size: 0.95rem;
+   padding: 0.7rem 0.9rem;
+   font-family: inherit;
+   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.email-template-form input:focus,
+.email-template-form textarea:focus {
+   border-color: var(--solidcam-gold);
+   box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+   outline: none;
 }
 
 .email-template-form textarea {
-  resize: vertical;
-  min-height: 160px;
+   resize: vertical;
+   min-height: 180px;
+   line-height: 1.5;
+}
+
+.email-template-form__field--body {
+   flex: 1 1 auto;
+   min-height: 0;
+   display: flex;
+   flex-direction: column;
+}
+
+.email-template-form__field--body label {
+   flex: 1 1 auto;
+   min-height: 0;
+   display: flex;
+   flex-direction: column;
+}
+
+.email-template-form__field--body textarea {
+   flex: 1 1 auto;
+   min-height: 200px;
+   height: 100%;
+   resize: vertical;
 }
 
 .email-template-form input:focus,
@@ -2042,19 +2403,29 @@ body.edit-mode .panel li:hover {
 }
 
 @media (max-width: 1180px) {
-  .email-template-layout,
-  .email-template-manage__layout {
-    grid-template-columns: 1fr;
-  }
+   .email-template-layout,
+   .email-template-manage__layout {
+     grid-template-columns: 1fr;
+     gap: 1rem;
+   }
 
-  .email-template-main-grid {
-    grid-template-columns: 1fr;
-  }
+   .email-template-main-grid {
+     grid-template-columns: 1fr;
+   }
 
-  .email-template-list,
-  .email-template-manage__list {
-    max-height: 220px;
-  }
+   .email-template-list,
+   .email-template-manage__list {
+     max-height: 50vh;
+   }
+
+   .email-template-sidebar {
+     min-height: auto;
+     max-height: 50vh;
+   }
+
+   .email-template-compose {
+     min-height: auto;
+   }
 }
 
 /* Copy HUD (centered over clicked chip/button) */
@@ -2133,3 +2504,7 @@ body.edit-mode .panel li:hover {
     min-width: 4rem;
   }
 }
+.email-template-row-actions { position: absolute; right: 0.35rem; top: 50%; transform: translateY(-50%); display: inline-flex; gap: 0.25rem; }
+.email-template-row-btn { appearance: none; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: var(--text-secondary); border-radius: 8px; width: 1.45rem; height: 1.45rem; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.email-template-row-btn:hover { background: rgba(255,255,255,0.12); color: var(--text-primary); }
+.email-template-row-btn--danger { border-color: rgba(200,16,46,0.45); }

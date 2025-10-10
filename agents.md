@@ -36,6 +36,12 @@ Welcome aboard! This document gives future agents the context they need to pick 
    - Every structural change (bit added/removed, drag reorder, sidebar edits, checkbox changes) must pass through `persistState`.
    - `applyState` reconstructs UI elements on load. If you add new state properties, update `collectState` / `applyState` pair coherently.
 
+6. **Calculator contract**
+   - Grid: 4 columns × 6 rows inside `.calculator-buttons`.
+   - Layout: `=` sits under `+` and spans two rows (rows 5–6, column 4). The quick % buttons (5–30%) occupy the bottom row under `+/−`, `0`, and `.`.
+   - Behavior: After pressing `=`, typing a number starts a new calculation; choosing an operator continues from the result. The `%` operator and quick % buttons compute percentage of the current entry, or of the first operand if an operator was chosen (e.g., `100 +` then `10%` -> inserts `10`).
+   - Code: markup in `assets/js/dom.js` (calculator panel), logic in `assets/js/calculator.js`, styles in `assets/css/main.css`.
+
 ## Styling Notes
 - Main theme uses dark gradients with SolidCAM red and gold accents. Do **not** shift the palette without explicit approval.
 - Layout tuning focuses on vertical compactness; spacing is already minimized, so adjust cautiously.

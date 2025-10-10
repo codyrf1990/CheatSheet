@@ -6,7 +6,7 @@ Interactive reference for the SolidCAM team that combines the package matrix, ma
 
 - **Package Bits table** – toggle master packages and individual bits, add custom entries, drag to re-order, and copy codes with a click. State persists locally per browser.
 - **Right-side panels** – quick lists for Standalone Modules, Maintenance SKUs, and SolidWorks Maintenance with the same copy and edit affordances.
-- **Calculator card** – standard operations, +/- toggle, delete, percent, and a bank of quick percentage buttons (5–30%) that fill the action column. Percent shortcuts work on the current entry or the first operand after choosing an operator.
+- **Calculator card** – standard operations, +/- toggle, delete, percent, and a bank of quick percentage buttons (5–30%). Layout: equals is a tall key directly under `+` (spans two rows); the quick % buttons sit on the bottom row beneath `+/−`, `0`, and `.`. After pressing `=` the next number starts a fresh calculation; choosing an operator continues from the result.
 - **Email Templates card** – searchable template library with placeholder personalization, copy buttons, “Launch in Outlook” (mailto) handoff, and a full manage mode to add/edit/clone/delete/reorder templates. Defaults can be restored at any time.
 
 ### Getting started
@@ -21,7 +21,7 @@ Interactive reference for the SolidCAM team that combines the package matrix, ma
 ### Tips & workflows
 
 - **Editing package content** – Enable “Edit Order” to drag rows/cards; toggle Add/Remove Bit for custom items. Use “Reset Order” to discard local changes or “Reset Checks” to clear selections only.
-- **Calculator shortcuts** – The quick percent buttons calculate the specified percentage of the current display. If you’ve selected an operation (e.g., `100 +`), the shortcut treats the first operand as the base, inserts the result, and lets you continue.
+- **Calculator shortcuts** – The quick percent buttons calculate the specified percentage of the current display. If you’ve selected an operation (e.g., `100 +`), the shortcut treats the first operand as the base, inserts the result, and lets you continue. After `=`, typing a digit clears the display for a new entry; selecting an operator uses the last result.
 - **Email templates** – Personalize placeholders before launching Outlook. Manage mode stores changes in `localStorage`; each browser profile maintains its own library. “Restore Defaults” reloads the starter set shipped with the repo.
 
 ### Contributing
