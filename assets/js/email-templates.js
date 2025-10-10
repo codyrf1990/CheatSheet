@@ -105,14 +105,10 @@ export function initializeEmailTemplates() {
   }
 
   // Initial render and wiring
-  console.log('🏗️ Initializing email templates...');
   renderTemplateList();
-  console.log('📋 Rendered template list');
   loadForm(state.selectedId);
-  console.log('📝 Form loaded');
   // no tag chips to render
   updateLaunchEnabled();
-  console.log('✅ Email templates initialized');
 
   // Events
   refs.searchInput?.addEventListener('input', (e) => {
@@ -138,6 +134,9 @@ export function initializeEmailTemplates() {
     }
     const option = event.target.closest('[data-template-id]');
     if (!option) return;
+    if (refs.templateList) {
+      refs.templateList.dataset.pendingFocus = 'true';
+    }
     selectTemplate(option.dataset.templateId);
   });
 
@@ -152,7 +151,16 @@ export function initializeEmailTemplates() {
     if (event.key === 'Home') index = 0;
     if (event.key === 'End') index = items.length - 1;
     const next = items[index];
-    if (next) selectTemplate(next.dataset.templateId);
+    if (next) {
+      refs.templateList.dataset.pendingFocus = 'true';
+      selectTemplate(next.dataset.templateId);
+    }
+  });
+
+  refs.templateList?.addEventListener('focus', event => {
+    if (event.target !== refs.templateList) return;
+    refs.templateList.dataset.pendingFocus = 'true';
+    focusActiveOption({ force: true });
   });
 
   refs.newTemplateBtn?.addEventListener('click', () => {
@@ -235,36 +243,36 @@ export function initializeEmailTemplates() {
   // Helpers (inside init)
   function renderTemplateList() {
     if (!refs.templateList) {
-      console.log('❌ Template list ref not found');
       return;
     }
-
-    console.log('🖼️ Rendering template list...');
     refs.templateList.innerHTML = '';
     const filtered = getFilteredTemplates(state.templates, state.searchTerm);
-    console.log('🔍 Filtered templates:', filtered.length);
-
     if (!filtered.length) {
-      console.log('📭 No templates to render');
       const empty = document.createElement('div');
       empty.className = 'email-template-alert email-template-alert--warning';
       empty.textContent = 'No templates match your search.';
       refs.templateList.appendChild(empty);
+      refs.templateList.removeAttribute('aria-activedescendant');
+      delete refs.templateList.dataset.pendingFocus;
       return;
     }
     filtered.forEach((template, index) => {
-      console.log(`🏗️ Creating template item ${index} for:`, template.name);
+      const optionId = `email-template-option-${template.id}`;
       const button = document.createElement('div');
       button.className = 'email-template-item';
       button.dataset.templateId = template.id;
       button.setAttribute('role', 'option');
+      button.id = optionId;
 
       if (template.id === state.selectedId) {
         button.classList.add('is-active');
         button.setAttribute('aria-selected', 'true');
+        button.tabIndex = 0;
+      } else {
+        button.tabIndex = -1;
       }
-      const isFirst = template.sortOrder === 0;
-      const isLast = template.sortOrder === state.templates.length - 1;
+      const isFirst = index === 0;
+      const isLast = index === filtered.length - 1;
 
       const moveControls = document.createElement('div');
       moveControls.className = 'email-template-item__move';
@@ -299,6 +307,8 @@ export function initializeEmailTemplates() {
       button.append(moveControls, title, meta, actions);
       refs.templateList.appendChild(button);
     });
+
+    focusActiveOption();
   }
 
   function moveTemplate(id, direction) {
@@ -330,6 +340,9 @@ export function initializeEmailTemplates() {
 
     state.templates = ordered;
     saveTemplates(state.templates);
+    if (refs.templateList) {
+      refs.templateList.dataset.pendingFocus = 'true';
+    }
     renderTemplateList();
     showToast('Template order updated.', 'success');
   }
@@ -401,8 +414,10 @@ export function initializeEmailTemplates() {
       state.templates.push(template);
       saveTemplates(state.templates);
       state.formDirty = false;
+      if (refs.templateList) {
+        refs.templateList.dataset.pendingFocus = 'true';
+      }
       loadForm(template.id);
-      renderTemplateList();
       showToast('Template added.', 'success');
     }
   }
@@ -419,8 +434,10 @@ export function initializeEmailTemplates() {
     state.templates.splice(index, 1);
     ensureTemplateOrder(state.templates);
     saveTemplates(state.templates);
-    renderTemplateList();
     const nextId = state.templates[0]?.id ?? null;
+    if (refs.templateList) {
+      refs.templateList.dataset.pendingFocus = 'true';
+    }
     loadForm(nextId);
     showToast('Template deleted.', 'success');
   }
@@ -438,12 +455,37 @@ export function initializeEmailTemplates() {
     };
     state.templates.push(clone);
     saveTemplates(state.templates);
-    renderTemplateList();
+    if (refs.templateList) {
+      refs.templateList.dataset.pendingFocus = 'true';
+    }
     loadForm(clone.id);
     showToast('Template cloned.', 'success');
   }
 
   function selectTemplate(id) { loadForm(id); }
+
+  function focusActiveOption({ force = false } = {}) {
+    if (!refs.templateList) return;
+    const active = refs.templateList.querySelector('.email-template-item.is-active');
+    const shouldFocus = refs.templateList.dataset.pendingFocus === 'true' || force;
+
+    if (active) {
+      refs.templateList.setAttribute('aria-activedescendant', active.id);
+      if (shouldFocus) {
+        active.focus();
+      }
+    } else {
+      refs.templateList.removeAttribute('aria-activedescendant');
+    }
+
+    if (shouldFocus) {
+      delete refs.templateList.dataset.pendingFocus;
+    }
+
+    refs.templateList.querySelectorAll('.email-template-item').forEach(item => {
+      item.tabIndex = item.classList.contains('is-active') ? 0 : -1;
+    });
+  }
 }
 
 /* Persistence and helpers (module scope) */

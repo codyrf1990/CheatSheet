@@ -26,7 +26,7 @@
               <input type="search" placeholder="Search templates" data-field="search" aria-label="Search templates">
             </label>
             
-            <div class="email-template-list" data-template-list role="listbox" aria-label="Available email templates"></div>
+            <div class="email-template-list" data-template-list role="listbox" tabindex="0" aria-label="Available email templates"></div>
           </aside>
           <div class="email-template-main">
             <div class="email-template-compose" data-compose>
@@ -78,20 +78,28 @@
 
   <script type="module" src="assets/js/app.js?v=20250110.1"></script>
   <script>
-    // Aggressive cache busting for development
-    document.addEventListener('DOMContentLoaded', function() {
-      const timestamp = Date.now() + Math.random();
-      const css = document.querySelector('link[href*="main.css"]');
-      const js = document.querySelector('script[src*="app.js"]');
+    // Aggressive cache busting stays in local/dev only to avoid breaking production refreshes
+    const devHosts = new Set(['localhost', '127.0.0.1', '']);
+    const isDevEnvironment =
+      devHosts.has(location.hostname) ||
+      location.hostname.endsWith('.local') ||
+      location.protocol === 'file:';
 
-      if (css) css.href += '&t=' + timestamp;
-      if (js) js.src += '&t=' + timestamp;
+    if (isDevEnvironment) {
+      document.addEventListener('DOMContentLoaded', function() {
+        const timestamp = Date.now() + Math.random();
+        const css = document.querySelector('link[href*="main.css"]');
+        const js = document.querySelector('script[src*="app.js"]');
 
-      // Also force reload if page is being loaded from cache
-      if (performance.getEntriesByType('navigation')[0].type === 'back_forward') {
-        window.location.reload(true);
-      }
-    });
+        if (css) css.href += '&t=' + timestamp;
+        if (js) js.src += '&t=' + timestamp;
+
+        const navEntries = performance.getEntriesByType?.('navigation') || [];
+        if (navEntries[0]?.type === 'back_forward') {
+          window.location.reload();
+        }
+      });
+    }
   </script>
 </body>
 </html>
