@@ -3,9 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Packages & Maintenance Cheat Sheet</title>
     <link rel="icon" type="image/png" href="assets/img/profile-icon.png">
-  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/main.css?v=20250110.3">
 </head>
 <body>
   <div id="app"></div>
@@ -13,117 +16,82 @@
 
   <section class="email-template-section" aria-label="Email Templates">
     <div class="email-template-card">
-      <div class="email-template-card__header">
-        <div>
-          <h3>Email Templates</h3>
-          <p class="email-template-card__subtitle">Launch personalized Outlook drafts in a click.</p>
-        </div>
-        <div class="email-template-card__header-actions">
-          <button class="email-template-btn" data-action="toggle-manage" type="button">Manage</button>
-        </div>
-      </div>
-      <div class="email-template-toast" data-template-toast hidden></div>
+      
+      
 
       <div class="email-template-view" data-mode="browse">
         <div class="email-template-layout">
           <aside class="email-template-sidebar">
             <label class="email-template-field">
-              <span class="email-template-field__label">Search</span>
-              <input type="search" placeholder="Search templates" data-field="search">
+              <input type="search" placeholder="Search templates" data-field="search" aria-label="Search templates">
             </label>
+            
             <div class="email-template-list" data-template-list role="listbox" aria-label="Available email templates"></div>
           </aside>
           <div class="email-template-main">
-            <div class="email-template-main-grid">
-              <div class="email-template-preview">
-                <div class="email-template-preview__empty" data-preview-empty>
-                  Select a template to preview and personalize it.
+            <div class="email-template-compose" data-compose>
+              <header class="email-template-compose__header">
+                <div class="email-template-compose__title-wrap">
+                  <input class="email-template-compose__name" data-field="name" type="text" placeholder="Template name" aria-label="Template name" required>
                 </div>
-                <div class="email-template-preview__content" data-preview-content hidden>
-                  <header class="email-template-preview__header">
-                    <div>
-                      <h4 data-preview-title></h4>
-                      <p class="email-template-preview__meta" data-preview-tags></p>
+                <div class="email-template-compose__actions">
+                  <button class="email-template-btn" data-action="new-template" type="button">Add Template</button>
+                  <button class="email-template-btn" data-action="save-template" type="button">Save</button>
+                </div>
+              </header>
+              <form class="email-template-form" data-editor-form>
+                <input type="hidden" data-field="id">
+                <div class="email-template-form__field">
+                  <label>
+                    <div class="email-template-label-row">
+                      <span>Subject</span>
+                      <button class="email-template-btn email-template-btn--ghost email-template-btn--xs email-template-btn--icon" data-action="copy-subject-inline" type="button" aria-label="Copy subject" title="Copy subject">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg>
+                      </button>
                     </div>
-                    <div class="email-template-preview__actions">
-                      <button class="email-template-btn" data-action="copy-subject" type="button">Copy Subject</button>
-                      <button class="email-template-btn" data-action="copy-body" type="button">Copy Body</button>
+                    <input type="text" data-field="subject" placeholder="Email subject" required>
+                  </label>
+                </div>
+                <div class="email-template-form__field email-template-form__field--body">
+                  <label>
+                    <div class="email-template-label-row">
+                      <span>Body</span>
+                      <button class="email-template-btn email-template-btn--ghost email-template-btn--xs email-template-btn--icon" data-action="copy-body-inline" type="button" aria-label="Copy body" title="Copy body">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg>
+                      </button>
                     </div>
-                  </header>
-                  <div class="email-template-preview__subject">
-                    <span class="email-template-preview__label">Subject</span>
-                    <div class="email-template-preview__value" data-preview-subject></div>
-                  </div>
-                  <div class="email-template-preview__body">
-                    <span class="email-template-preview__label">Body</span>
-                    <pre data-preview-body></pre>
-                  </div>
-                  <div class="email-template-preview__footer">
-                    <button class="email-template-btn email-template-btn--primary" data-action="launch-outlook" type="button" disabled>Launch in Outlook</button>
-                    <p class="email-template-preview__warning" data-preview-warning hidden></p>
-                    <p class="email-template-preview__note">
-                      Outlook fills the subject and body; your signature is added automatically.
-                    </p>
-                  </div>
+                    <textarea data-field="body" rows="12" placeholder="Write the email body here..." required></textarea>
+                  </label>
                 </div>
-              </div>
-              <aside class="email-template-personalize">
-                <div class="email-template-personalize__header">
-                  <h4>Personalize</h4>
-                  <p class="email-template-personalize__note" data-placeholder-note>
-                    Complete these fields to merge details into the email.
-                  </p>
+                <div class="email-template-form__footer">
+                  <div class="email-template-toast email-template-toast--inset" data-template-toast hidden></div>
+                  <button class="email-template-btn email-template-btn--primary" data-action="launch-outlook" type="button" disabled>Launch in Outlook</button>
                 </div>
-                <div class="email-template-personalize__body" data-placeholder-list></div>
-              </aside>
+              </form>
+              <p class="email-template-preview__warning" data-preview-warning hidden></p>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div class="email-template-manage" data-mode="manage" hidden>
-        <div class="email-template-manage__controls">
-          <button class="email-template-btn email-template-btn--primary" data-action="new-template" type="button">New Template</button>
-          <button class="email-template-btn" data-action="reset-defaults" type="button">Restore Defaults</button>
-        </div>
-        <div class="email-template-manage__layout">
-          <div class="email-template-manage__list" data-manage-list></div>
-          <form class="email-template-form" data-template-form>
-            <input type="hidden" data-field="id">
-            <div class="email-template-form__field">
-              <label>
-                <span>Name</span>
-                <input type="text" data-field="name" required>
-              </label>
-            </div>
-            <div class="email-template-form__field">
-              <label>
-                <span>Subject</span>
-                <input type="text" data-field="subject" required>
-              </label>
-            </div>
-            <div class="email-template-form__field">
-              <label>
-                <span>Body</span>
-                <textarea data-field="body" rows="8" required></textarea>
-              </label>
-            </div>
-            <div class="email-template-form__field">
-              <label>
-                <span>Tags (comma separated)</span>
-                <input type="text" data-field="tags">
-              </label>
-            </div>
-            <div class="email-template-form__footer">
-              <button class="email-template-btn" data-action="discard-template" type="button">Discard</button>
-              <button class="email-template-btn email-template-btn--primary" data-action="save-template" type="submit">Save Template</button>
-            </div>
-          </form>
         </div>
       </div>
     </div>
   </section>
 
-  <script type="module" src="assets/js/app.js"></script>
+  <script type="module" src="assets/js/app.js?v=20250110.1"></script>
+  <script>
+    // Aggressive cache busting for development
+    document.addEventListener('DOMContentLoaded', function() {
+      const timestamp = Date.now() + Math.random();
+      const css = document.querySelector('link[href*="main.css"]');
+      const js = document.querySelector('script[src*="app.js"]');
+
+      if (css) css.href += '&t=' + timestamp;
+      if (js) js.src += '&t=' + timestamp;
+
+      // Also force reload if page is being loaded from cache
+      if (performance.getEntriesByType('navigation')[0].type === 'back_forward') {
+        window.location.reload(true);
+      }
+    });
+  </script>
 </body>
 </html>

@@ -1,0 +1,21 @@
+# Force no caching for CSS and JS files during development
+<FilesMatch "\.(css|js)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "Thu, 01 Jan 1970 00:00:00 GMT"
+    Header set Last-Modified "Wed, 01 Jan 2020 00:00:00 GMT"
+</FilesMatch>
+
+# Also prevent caching for HTML files
+<FilesMatch "\.html$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "Thu, 01 Jan 1970 00:00:00 GMT"
+</FilesMatch>
+
+# Enable CORS for local development if needed
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set X-XSS-Protection "1; mode=block"
+</IfModule>
