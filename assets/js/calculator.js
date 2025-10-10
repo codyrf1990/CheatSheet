@@ -104,6 +104,16 @@ function inputDecimal() {
     resetState();
   }
 
+  if (state.justEvaluated) {
+    state.displayValue = '0.';
+    state.firstOperand = null;
+    state.operator = null;
+    state.waitingForSecondOperand = false;
+    state.error = false;
+    state.justEvaluated = false;
+    return;
+  }
+
   if (state.waitingForSecondOperand) {
     state.displayValue = '0.';
     state.waitingForSecondOperand = false;
@@ -244,6 +254,7 @@ function handlePercent() {
   state.displayValue = formatted;
   state.waitingForSecondOperand = false;
   state.error = false;
+  state.justEvaluated = true;
 }
 
 function resetState() {
@@ -324,12 +335,14 @@ function handleQuickPercent(percent) {
 
   if (usedAsSecondOperand) {
     state.waitingForSecondOperand = false;
+    state.justEvaluated = false;
     return;
   }
 
   state.firstOperand = null;
   state.operator = null;
   state.waitingForSecondOperand = false;
+  state.justEvaluated = true;
 }
 
 function updateDisplay(displayElement) {

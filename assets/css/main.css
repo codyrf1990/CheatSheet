@@ -76,6 +76,7 @@ a {
   border-radius: 20px;
   box-shadow: 0 25px 45px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   width: var(--layout-content-width, 100%);
   max-width: 100%;
   justify-self: center;
@@ -405,6 +406,7 @@ thead th {
   inset: 0;
   background: rgba(0,0,0,0.55);
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: none;
   align-items: center;
   justify-content: center;
@@ -1313,6 +1315,7 @@ body.edit-mode .panel li:hover {
   border-radius: 20px;
   box-shadow: 0 25px 45px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   max-width: 1200px;
 }
 
@@ -1654,6 +1657,7 @@ body.edit-mode .panel li:hover {
    font-weight: 500;
    box-shadow: 0 12px 30px rgba(200,16,46,0.4);
    backdrop-filter: blur(8px);
+   -webkit-backdrop-filter: blur(8px);
    letter-spacing: 0.02em;
 }
 
@@ -2448,6 +2452,7 @@ body.edit-mode .panel li:hover {
   color: #fff;
   box-shadow: 0 5px 12px rgba(0,0,0,0.22);
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   font-size: 0.62rem;
   line-height: 1;
   text-align: center;

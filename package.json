@@ -1,0 +1,24 @@
+{
+  "name": "cheatsheet",
+  "version": "1.0.0",
+  "description": "Interactive reference for the SolidCAM team that combines the package matrix, maintenance lookups, and a built-in comms toolkit. Everything runs client-side – open `index.html` in any modern browser and you’re ready to work offline.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/codyrf1990/CheatSheet.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/codyrf1990/CheatSheet/issues"
+  },
+  "homepage": "https://github.com/codyrf1990/CheatSheet#readme",
+  "type": "module",
+  "dependencies": {
+    "jsdom": "^22.1.0"
+  }
+}
