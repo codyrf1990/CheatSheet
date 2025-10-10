@@ -44,20 +44,21 @@ export const packages = [
           'Modeler',
           'Machinist',
           'SolidCAM Mill 2D',
-          'SolidCAM Mill 2.5D',
           'Profile/Pocket 2.5D Rest Material',
+          'SolidCAM Mill 2.5D',
+          'Pocket Recognition',
+          'Chamfer Recognition',
+          'Hole+Drill Recognition',
+          'SC Mill 3D',
+          'C-axes (Wrap)',
           '4-axes Indexial',
           '5-axes Indexial',
-          'C-axes (Wrap)',
-          'Hole+Drill Recognition',
-          'Pocket Recognition',
-          'Chamfer recognition'
+          'Multi-Depth Drill'
         ]
       }
     ],
     looseBits: [
-      'HSS',
-      'Multi-Depth Drill'
+      'HSS'
     ]
   },
   {
@@ -94,22 +95,22 @@ export const packages = [
     description: 'Full simultaneous 4/5 axis toolkit.',
     groups: [
       {
-        label: 'Sim5x',
+        label: 'SIM5X',
         masterId: 'sc-mill-5axis-sim5x',
         bits: [
-          'Simultaneous 5x',
-          'Auto 3+2 Roughing',
-          'Screw Machining (Rotary)',
-          'Convert5X',
-          '5x Drill',
+          'Sim5x',
           'Swarf machining',
-          'Contour 5x'
+          '5x Drill',
+          'Contour 5x',
+          'Convert5X',
+          'Auto 3+2 Roughing',
+          'Screw Machining (Rotary)'
         ]
       }
     ],
     looseBits: [
       'Sim4x',
-      'Multiaxis - Multiaxis Roughing'
+      'Multiaxis Roughing'
     ]
   }
 ];
@@ -145,16 +146,19 @@ export const panels = [
     title: 'Maintenance SKUs',
     editable: true,
     items: [
-      'Convert5X-Maint',
+      '25M-Maint',
       'EdgeBreak-Maint',
       'EdgeTrim-Maint',
       'HSM-Maint',
-      'iMach2d-Maint',
-      'iMach3d-Maint',
+      'HSS-Maint',
+      'iMach2D-Maint',
+      'iMach3D-Maint',
+      'Lic-Net-Maint',
       'MachSim-Maint',
       'MTS-Maint',
       'Multiaxis-Maint',
       'Multiblade-Maint',
+      'NPD-Maint',
       'Port-Maint',
       'Probe-Maint',
       'SC-Mill-3D-Maint',
@@ -162,14 +166,12 @@ export const panels = [
       'SC-Mill-Adv-Maint',
       'SC-Mill-Maint',
       'SC-Turn-Maint',
-      'SolidShop-Sim-maint',
       'Sim4x-Maint',
       'Sim5x-Maint',
-      'SolidShop-Editor-maint',
+      'SolidShop-Editor-Maint',
+      'SolidShop-Sim-Maint',
       'Swiss-Maint',
-      '25M-Maint',
-      'turn-maint',
-      'NPD-Maint',
+      'Turn-Maint',
       'Vericut-Maint'
     ]
   },

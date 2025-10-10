@@ -148,7 +148,7 @@ function renderHeader() {
         </div>
       </div>
       <div class="header-center">
-        <h1 class="header-title">SolidCAM Packages &amp; Maintenance Cheat Sheet</h1>
+        <h1 class="header-title">Packages &amp; Maintenance Cheat Sheet</h1>
         <div class="link-row">
           ${headerLinks.map(renderHeaderLink).join('')}
         </div>
