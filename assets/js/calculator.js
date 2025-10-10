@@ -4,6 +4,8 @@ const state = {
   waitingForSecondOperand: false,
   operator: null,
   error: false,
+  // When true, the next numeric input should start a new entry
+  justEvaluated: false,
 };
 
 export function initializeCalculator() {
@@ -72,6 +74,17 @@ function inputDigit(digit) {
     resetState();
   }
 
+  // If the last action was '=' and user enters a digit, start fresh
+  if (state.justEvaluated) {
+    state.displayValue = digit;
+    state.firstOperand = null;
+    state.operator = null;
+    state.waitingForSecondOperand = false;
+    state.error = false;
+    state.justEvaluated = false;
+    return;
+  }
+
   if (state.waitingForSecondOperand) {
     state.displayValue = digit;
     state.waitingForSecondOperand = false;
@@ -104,6 +117,11 @@ function inputDecimal() {
 
 function handleOperator(nextOperator) {
   if (state.error) return;
+
+  // Using the displayed result to continue a new operation
+  if (state.justEvaluated) {
+    state.justEvaluated = false;
+  }
 
   const inputValue = parseFloat(state.displayValue);
   if (Number.isNaN(inputValue)) return;
@@ -158,6 +176,7 @@ function handleEquals() {
   state.operator = null;
   state.waitingForSecondOperand = false;
   state.error = false;
+  state.justEvaluated = true;
 }
 
 function handleClear() {
@@ -233,6 +252,7 @@ function resetState() {
   state.waitingForSecondOperand = false;
   state.operator = null;
   state.error = false;
+  state.justEvaluated = false;
 }
 
 function setError() {

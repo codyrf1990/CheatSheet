@@ -12,6 +12,8 @@ const PACKAGE_SCOPE = 'package-bits';
 let widthSyncRoot = null;
 let widthSyncListenerAttached = false;
 let editModeGuardId = null;
+let copyHudEl = null;
+let copyHudTimer = null;
 
 export function renderApp(mount) {
   editMode = false;
@@ -32,12 +34,20 @@ export function renderApp(mount) {
             </div>
           </div>
           <aside class="panels">
-            ${panels.map(renderPanel).join('')}
+            ${renderMaintenanceCombinedPanel()}
+            ${panels
+              .filter(p => !['standalone-modules', 'maintenance-skus', 'solidworks-maintenance'].includes(p.id))
+              .map(renderPanel)
+              .join('')}
+            ${renderCalculatorPanel()}
           </aside>
         </section>
       </main>
     </div>
   `;
+
+  // Ensure copy HUD is present for copy notifications
+  ensureCopyHud();
 
   const root = mount.querySelector('.page-shell');
   const editButton = root.querySelector('#edit-mode-btn');
@@ -108,7 +118,7 @@ export function renderApp(mount) {
   }
 
   updateMasterCheckboxes(root);
-  registerCopyHandlers(root, () => editMode);
+  registerCopyHandlers(root, () => editMode, showCopyHud);
   widthSyncRoot = root;
   requestAnimationFrame(() => syncPanelWidths(root));
   ensureWidthSyncListener();
@@ -135,6 +145,98 @@ export function renderApp(mount) {
       exitEditMode(root);
     }
   }, 15000);
+}
+
+function renderCalculatorPanel() {
+  return `
+    <section class="panel" data-panel="calculator" data-panel-editable="false" data-panel-title="Calculator">
+      <div class="calculator-shell">
+        <div class="calculator">
+          <div class="calculator-display">0</div>
+          <div class="calculator-buttons" aria-label="Calculator buttons">
+            <button class="calculator-button clear" data-action="clear">AC</button>
+            <button class="calculator-button" data-action="delete">DEL</button>
+            <button class="calculator-button operation" data-action="percent">%</button>
+            <button class="calculator-button operation" data-operation="/">/</button>
+            <button class="calculator-button" data-number="7">7</button>
+            <button class="calculator-button" data-number="8">8</button>
+            <button class="calculator-button" data-number="9">9</button>
+            <button class="calculator-button operation" data-operation="*">x</button>
+            <button class="calculator-button" data-number="4">4</button>
+            <button class="calculator-button" data-number="5">5</button>
+            <button class="calculator-button" data-number="6">6</button>
+            <button class="calculator-button operation" data-operation="-">-</button>
+            <button class="calculator-button" data-number="1">1</button>
+            <button class="calculator-button" data-number="2">2</button>
+            <button class="calculator-button" data-number="3">3</button>
+            <button class="calculator-button operation" data-operation="+">+</button>
+            <button class="calculator-button" data-action="sign">+/-</button>
+            <button class="calculator-button" data-number="0">0</button>
+            <button class="calculator-button" data-action="decimal">.</button>
+            <button class="calculator-button equals" data-action="equals">=</button>
+            <div class="calculator-quick-row" aria-label="Quick percentage buttons">
+              <button class="calculator-quick-button" type="button" data-percent="5">5%</button>
+              <button class="calculator-quick-button" type="button" data-percent="10">10%</button>
+              <button class="calculator-quick-button" type="button" data-percent="15">15%</button>
+              <button class="calculator-quick-button" type="button" data-percent="20">20%</button>
+              <button class="calculator-quick-button" type="button" data-percent="25">25%</button>
+              <button class="calculator-quick-button" type="button" data-percent="30">30%</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function ensureCopyHud() {
+  if (copyHudEl) return copyHudEl;
+  const el = document.createElement('div');
+  el.className = 'copy-hud';
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-live', 'polite');
+  el.innerHTML = '<span class="copy-hud__text">Copied</span>';
+  document.body.appendChild(el);
+  copyHudEl = el;
+  // Global fallback: other modules can dispatch this event
+  window.addEventListener('copy-hud', (ev) => {
+    const dx = ev?.detail?.x;
+    const dy = ev?.detail?.y;
+    const target = ev?.detail?.target || null;
+    if (typeof dx === 'number' && typeof dy === 'number') {
+      showCopyHud({ x: dx, y: dy }, 'Copied');
+    } else {
+      showCopyHud(target, 'Copied');
+    }
+  });
+  return el;
+}
+
+// Accept either an element or a click position {x, y} in client coords
+function showCopyHud(posOrEl, message = 'Copied') {
+  const el = ensureCopyHud();
+  const textNode = el.querySelector('.copy-hud__text');
+  if (textNode) textNode.textContent = message;
+
+  let top = window.scrollY + window.innerHeight / 2;
+  let left = window.scrollX + window.innerWidth / 2;
+  if (posOrEl && typeof posOrEl === 'object') {
+    if (typeof posOrEl.x === 'number' && typeof posOrEl.y === 'number') {
+      // Position exactly where the mouse clicked (client coords + scroll)
+      left = window.scrollX + posOrEl.x;
+      top = window.scrollY + posOrEl.y;
+    } else if (typeof posOrEl.getBoundingClientRect === 'function') {
+      const rect = posOrEl.getBoundingClientRect();
+      top = rect.top + rect.height / 2 + window.scrollY;
+      left = rect.left + rect.width / 2 + window.scrollX;
+    }
+  }
+  el.style.top = `${top}px`;
+  el.style.left = `${left}px`;
+
+  el.classList.add('show');
+  clearTimeout(copyHudTimer);
+  copyHudTimer = setTimeout(() => el.classList.remove('show'), 600);
 }
 
 function renderHeader() {
@@ -167,6 +269,32 @@ function renderHeaderLink(link) {
     <a href="${safeHref}" class="${intentClass}" target="_blank" rel="noopener noreferrer"${titleAttr}>
       ${safeLabel}
     </a>
+  `;
+}
+
+function renderMaintenanceCombinedPanel() {
+  const maint = (panels || []).find(p => p.id === 'maintenance-skus');
+  const sw = (panels || []).find(p => p.id === 'solidworks-maintenance');
+  const maintItems = (maint?.items || []).map(item => createPanelItemMarkup(item)).join('');
+  const swItems = (sw?.items || []).map(item => createPanelItemMarkup(item)).join('');
+
+  return `
+    <section class="panel" data-panel="maintenance-combined" data-panel-editable="false" data-panel-title="Maintenance SKUs">
+      <div class="panel-head">
+        <h2>Maintenance SKUs</h2>
+      </div>
+      <div class="panel-section">
+        <ul data-sortable-group="maintenance-skus">
+          ${maintItems}
+        </ul>
+      </div>
+      <div class="panel-section">
+        <div class="panel-subhead">SolidWorks</div>
+        <ul data-sortable-group="solidworks-maintenance">
+          ${swItems}
+        </ul>
+      </div>
+    </section>
   `;
 }
 
@@ -522,7 +650,7 @@ function handleAddBit(control, root) {
 
   const element = htmlToElement(looseBitMarkup({ text, checked: false }, scope));
   bitsList.appendChild(element);
-  registerCopyHandlers(element, () => editMode);
+  registerCopyHandlers(element, () => editMode, showCopyHud);
 
   if (editMode) {
   enableDrag(element);
@@ -629,7 +757,7 @@ function handleSortableDrop(event, root) {
   }
 
   to.insertBefore(replacement, reference);
-  registerCopyHandlers(replacement, () => editMode);
+  registerCopyHandlers(replacement, () => editMode, showCopyHud);
   if (editMode) {
     enableDrag(replacement);
   }
@@ -666,7 +794,7 @@ function handlePanelAdd(control, root) {
 
   const item = htmlToElement(createPanelItemMarkup(text));
   list.appendChild(item);
-  registerCopyHandlers(item, () => editMode);
+  registerCopyHandlers(item, () => editMode, showCopyHud);
 
   if (editMode) {
     enableDrag(list);
@@ -1015,7 +1143,10 @@ function syncPanelWidths(root) {
     return;
   }
 
-  const maintenance = root.querySelector('.panel[data-panel="maintenance-skus"]');
+  const maintenance =
+    root.querySelector('.panel[data-panel="maintenance-skus"]') ||
+    root.querySelector('.panel[data-panel="maintenance-combined"]') ||
+    root.querySelector('.panels .panel');
   if (maintenance) {
     const panelWidth = maintenance.getBoundingClientRect().width;
     if (Number.isFinite(panelWidth) && panelWidth > 0) {
