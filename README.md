@@ -32,4 +32,4 @@ Interactive reference for the SolidCAM team that combines the package matrix, ma
 
 ### Support
 
-Questions or fixes? Open an issue or share feedback with the SolidCAM operations crew. The project is intentionally framework-free so changes remain lightweight and easy to deploy.
+The project is intentionally framework-free so changes remain lightweight and easy to deploy.
