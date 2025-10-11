@@ -20,9 +20,28 @@ Interactive reference for the SolidCAM team that combines the package matrix, ma
 
 ### Tips & workflows
 
-- **Editing package content** – Enable “Edit Order” to drag rows/cards; toggle Add/Remove Bit for custom items. Use “Reset Order” to discard local changes or “Reset Checks” to clear selections only.
-- **Calculator shortcuts** – The quick percent buttons calculate the specified percentage of the current display. If you’ve selected an operation (e.g., `100 +`), the shortcut treats the first operand as the base, inserts the result, and lets you continue. After `=`, typing a digit clears the display for a new entry; selecting an operator uses the last result.
-- **Email templates** – Personalize placeholders before launching Outlook. Manage mode stores changes in `localStorage`; each browser profile maintains its own library. “Restore Defaults” reloads the starter set shipped with the repo.
+- **Editing package content** - Enable "Edit Order" to drag rows/cards; toggle Add/Remove Bit for custom items. Use "Reset Order" to discard local changes or "Reset Checks" to clear selections only.
+- **Calculator shortcuts** - The quick percent buttons calculate the specified percentage of the current display. If you've selected an operation (e.g., `100 +`), the shortcut treats the first operand as the base, inserts the result, and lets you continue. After `=`, typing a digit clears the display for a new entry; selecting an operator uses the last result.
+- **Email templates** - Personalize placeholders before launching Outlook. Manage mode stores changes in `localStorage`; each browser profile maintains its own library. "Restore Defaults" reloads the starter set shipped with the repo.
+
+### Automated checks
+
+- Run `npm test` (Node 18+) to execute the JSDOM smoke suite. It covers:
+  - Email template bootstrapping and selection (`scripts/test-email-templates.js`).
+  - Template authoring workflow (`scripts/test-email-add.js`).
+  - Package-bit add/move/remove persistence checks (`scripts/test-packages.js`).
+  - Master/sub checkbox state propagation and reset guardrails (`scripts/test-checkboxes.js`).
+- Console output is JSON per check; anything with `"success": false` needs a follow-up.
+
+### Manual QA checklist
+
+- Load `index.html` in a desktop browser and confirm the package table + side panels render without console errors.
+- Toggle `Edit Order` on/off, drag a package row and sidebar pill, then refresh to verify the new order persists.
+- Enter `Add` mode, append a custom bit, toggle `Remove` mode to delete it, and confirm `Reset Order` restores seed data.
+- Flip a master checkbox, confirm sub-bits follow, then hit `Reset Checks` to clear all selections.
+- Open the email template card: search, duplicate, edit, and delete a template; relaunch the page to verify persistence.
+- Exercise the calculator: chained operations, percent buttons (with/without pending operator), and clear/backspace paths.
+- Trigger a copy-to-clipboard on a code pill while not in edit mode; verify the toast/visual feedback appears.
 
 ### Contributing
 

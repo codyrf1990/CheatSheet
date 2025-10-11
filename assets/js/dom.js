@@ -1,5 +1,5 @@
 import { headerLinks, packages, panels } from './data.js';
-import { registerCopyHandlers } from './copy.js';
+import { registerCopyHandlers, bindCopyHandler } from './copy.js';
 import { enableDrag, disableDrag } from './drag-and-drop.js';
 import { loadState, saveState, clearState } from './persistence.js';
 
@@ -9,8 +9,13 @@ let packageRemoveMode = false;
 const panelRemoveModes = new Map();
 const masterLabelLookup = buildMasterLabelLookup();
 const PACKAGE_SCOPE = 'package-bits';
+const EDIT_MODE_GUARD_INTERVAL = 15000;
 let widthSyncRoot = null;
 let widthSyncListenerAttached = false;
+let widthSyncScheduled = false;
+let lastRightPanelWidth = null;
+let lastLayoutContentWidth = null;
+let widthSyncDirty = false;
 let editModeGuardId = null;
 let copyHudEl = null;
 let copyHudTimer = null;
@@ -65,15 +70,6 @@ export function renderApp(mount) {
   root.addEventListener('click', event => handleRootClick(event, root));
   tableBody.addEventListener('change', event => handleTableChange(event, root));
 
-  root.querySelectorAll('[data-action="package-row-add"]').forEach(button => {
-    button.addEventListener('click', event => {
-      event.stopPropagation();
-      event.preventDefault();
-      if (!packageAddMode) return;
-      handleAddBit(button, root);
-    });
-  });
-
   editButton.addEventListener('click', () => {
     editMode = !editMode;
     document.body.classList.toggle('edit-mode', editMode);
@@ -120,7 +116,7 @@ export function renderApp(mount) {
   updateMasterCheckboxes(root);
   registerCopyHandlers(root, () => editMode, showCopyHud);
   widthSyncRoot = root;
-  requestAnimationFrame(() => syncPanelWidths(root));
+  schedulePanelWidthSync(root);
   ensureWidthSyncListener();
 
   // Inject About overlay once per render
@@ -139,12 +135,19 @@ export function renderApp(mount) {
   window.addEventListener('pageshow', () => exitEditIfNeeded());
 
   // Periodic guard: if body has edit-mode but internal flag is false, clear it
-  if (editModeGuardId) clearInterval(editModeGuardId);
-  editModeGuardId = setInterval(() => {
-    if (!editMode && document.body.classList.contains('edit-mode')) {
-      exitEditMode(root);
+  if (typeof window !== 'undefined' && window.__TEST_ENV__) {
+    if (editModeGuardId) {
+      clearInterval(editModeGuardId);
+      editModeGuardId = null;
     }
-  }, 15000);
+  } else {
+    if (editModeGuardId) clearInterval(editModeGuardId);
+    editModeGuardId = setInterval(() => {
+      if (!editMode && document.body.classList.contains('edit-mode')) {
+        exitEditMode(root);
+      }
+    }, EDIT_MODE_GUARD_INTERVAL);
+  }
 }
 
 function renderCalculatorPanel() {
@@ -278,10 +281,29 @@ function renderMaintenanceCombinedPanel() {
   const maintItems = (maint?.items || []).map(item => createPanelItemMarkup(item)).join('');
   const swItems = (sw?.items || []).map(item => createPanelItemMarkup(item)).join('');
 
+  const controls = `
+      <div class="panel-controls">
+        <button
+          type="button"
+          class="panel-mode-btn"
+          data-action="panel-add-item"
+          aria-label="Add item to Maintenance SKUs"
+        >+</button>
+        <button
+          type="button"
+          class="panel-mode-btn"
+          data-action="panel-toggle-remove"
+          aria-pressed="false"
+          aria-label="Toggle delete mode for Maintenance SKUs"
+        >&minus;</button>
+      </div>
+    `;
+
   return `
-    <section class="panel" data-panel="maintenance-combined" data-panel-editable="false" data-panel-title="Maintenance SKUs">
+    <section class="panel" data-panel="maintenance-combined" data-panel-editable="true" data-panel-title="Maintenance SKUs">
       <div class="panel-head">
         <h2>Maintenance SKUs</h2>
+        ${controls}
       </div>
       <div class="panel-section">
         <ul data-sortable-group="maintenance-skus">
@@ -697,14 +719,14 @@ function handleAddBit(control, root) {
 
   const element = htmlToElement(looseBitMarkup({ text, checked: false }, scope));
   bitsList.appendChild(element);
-  registerCopyHandlers(element, () => editMode, showCopyHud);
+  element.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
 
   if (editMode) {
-  enableDrag(element);
+    enableDrag(element);
   }
 
   persistState(root);
-  requestAnimationFrame(() => syncPanelWidths(root));
+  schedulePanelWidthSync(root);
 }
 
 function handleBitRemoval(action, control, root) {
@@ -737,7 +759,7 @@ function handleBitRemoval(action, control, root) {
 
   updateMasterCheckboxes(root);
   persistState(root);
-  requestAnimationFrame(() => syncPanelWidths(root));
+  schedulePanelWidthSync(root);
 }
 
 function handleSortableDrop(event, root) {
@@ -747,7 +769,7 @@ function handleSortableDrop(event, root) {
   if (!(item instanceof HTMLElement) || !(to instanceof HTMLElement)) {
     updateMasterCheckboxes(root);
     persistState(root);
-    requestAnimationFrame(() => syncPanelWidths(root));
+    schedulePanelWidthSync(root);
     return;
   }
 
@@ -758,14 +780,14 @@ function handleSortableDrop(event, root) {
   if (!toIsBits && !toIsSubBits) {
     updateMasterCheckboxes(root);
     persistState(root);
-    requestAnimationFrame(() => syncPanelWidths(root));
+    schedulePanelWidthSync(root);
     return;
   }
 
   if (movingWithinSameContainer) {
     updateMasterCheckboxes(root);
     persistState(root);
-    requestAnimationFrame(() => syncPanelWidths(root));
+    schedulePanelWidthSync(root);
     return;
   }
 
@@ -773,7 +795,7 @@ function handleSortableDrop(event, root) {
   if (!labelSpan) {
     updateMasterCheckboxes(root);
     persistState(root);
-    requestAnimationFrame(() => syncPanelWidths(root));
+    schedulePanelWidthSync(root);
     return;
   }
 
@@ -804,7 +826,9 @@ function handleSortableDrop(event, root) {
   }
 
   to.insertBefore(replacement, reference);
-  registerCopyHandlers(replacement, () => editMode, showCopyHud);
+  replacement
+    .querySelectorAll('code')
+    .forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
   if (editMode) {
     enableDrag(replacement);
   }
@@ -823,7 +847,7 @@ function handleSortableDrop(event, root) {
 
   updateMasterCheckboxes(root);
   persistState(root);
-  requestAnimationFrame(() => syncPanelWidths(root));
+  schedulePanelWidthSync(root);
 }
 
 function handlePanelAdd(control, root) {
@@ -841,14 +865,14 @@ function handlePanelAdd(control, root) {
 
   const item = htmlToElement(createPanelItemMarkup(text));
   list.appendChild(item);
-  registerCopyHandlers(item, () => editMode, showCopyHud);
+  item.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
 
   if (editMode) {
     enableDrag(list);
   }
 
   persistState(root);
-  requestAnimationFrame(() => syncPanelWidths(root));
+  schedulePanelWidthSync(root);
 }
 
 function handlePanelToggleRemove(control) {
@@ -867,7 +891,7 @@ function handlePanelRemoveItem(control, root) {
   if (!item) return;
   item.remove();
   persistState(root);
-  requestAnimationFrame(() => syncPanelWidths(root));
+  schedulePanelWidthSync(root);
 }
 
 function togglePanelRemoveMode(panel) {
@@ -887,7 +911,7 @@ function setPanelRemoveMode(panel, nextState) {
   }
   const root = panel.closest('.page-shell');
   if (root) {
-    requestAnimationFrame(() => syncPanelWidths(root));
+    schedulePanelWidthSync(root);
   }
 }
 
@@ -925,10 +949,12 @@ function handleSubToggle(sub, root) {
 }
 
 function updateMasterCheckboxes(root) {
-  root.querySelectorAll('.master-checkbox').forEach(master => {
+  const masters = root.querySelectorAll('.master-checkbox');
+  masters.forEach(master => {
     const parentId = master.dataset.master;
     const group = master.closest('.master-bit');
     if (!group) return;
+
     const children = group.querySelectorAll(`.sub-checkbox[data-parent="${parentId}"]`);
     if (children.length === 0) {
       master.checked = false;
@@ -936,11 +962,23 @@ function updateMasterCheckboxes(root) {
       return;
     }
 
-    const checkedCount = Array.from(children).filter(cb => cb.checked).length;
-    if (checkedCount === 0) {
+    let anyChecked = false;
+    let allChecked = true;
+
+    for (const child of children) {
+      if (child.checked) {
+        anyChecked = true;
+        if (anyChecked && !allChecked) break;
+      } else {
+        allChecked = false;
+        if (!allChecked && anyChecked) break;
+      }
+    }
+
+    if (!anyChecked) {
       master.checked = false;
       master.indeterminate = false;
-    } else if (checkedCount === children.length) {
+    } else if (allChecked) {
       master.checked = true;
       master.indeterminate = false;
     } else {
@@ -991,9 +1029,24 @@ function collectState(root) {
   return { panels: panelState, packages: packageState };
 }
 
-function persistState(root) {
-  saveState(collectState(root));
-}
+const persistState = (() => {
+  let persistTimer = null;
+  let latestRoot = null;
+
+  const flush = () => {
+    if (!latestRoot) return;
+    saveState(collectState(latestRoot));
+    persistTimer = null;
+  };
+
+  return root => {
+    latestRoot = root;
+    if (persistTimer) {
+      clearTimeout(persistTimer);
+    }
+    persistTimer = setTimeout(flush, 80);
+  };
+})();
 
 function applyState(root, state) {
   if (state.panels) {
@@ -1045,7 +1098,7 @@ function applyState(root, state) {
     enableDrag(root);
   }
 
-  requestAnimationFrame(() => syncPanelWidths(root));
+  schedulePanelWidthSync(root);
 }
 
 function masterBitMarkup(group, scope) {
@@ -1181,12 +1234,39 @@ function getPackageScope(pkgCode) {
   return PACKAGE_SCOPE;
 }
 
+function schedulePanelWidthSync(root) {
+  if (typeof window === 'undefined') return;
+
+  if (root) {
+    widthSyncRoot = root;
+  }
+  widthSyncDirty = true;
+  if (!widthSyncRoot || widthSyncScheduled) return;
+
+  widthSyncScheduled = true;
+  window.requestAnimationFrame(() => {
+    widthSyncScheduled = false;
+    const targetRoot = widthSyncRoot;
+    if (targetRoot) {
+      syncPanelWidths(targetRoot);
+    }
+  });
+}
+
 function syncPanelWidths(root) {
   if (!root || typeof window === 'undefined') return;
+  if (!widthSyncDirty) return;
+  widthSyncDirty = false;
 
   if (window.matchMedia && window.matchMedia('(max-width: 1024px)').matches) {
-    document.documentElement.style.removeProperty('--right-panel-width');
-    document.documentElement.style.removeProperty('--layout-content-width');
+    if (lastRightPanelWidth !== null) {
+      document.documentElement.style.removeProperty('--right-panel-width');
+      lastRightPanelWidth = null;
+    }
+    if (lastLayoutContentWidth !== null) {
+      document.documentElement.style.removeProperty('--layout-content-width');
+      lastLayoutContentWidth = null;
+    }
     return;
   }
 
@@ -1197,10 +1277,11 @@ function syncPanelWidths(root) {
   if (maintenance) {
     const panelWidth = maintenance.getBoundingClientRect().width;
     if (Number.isFinite(panelWidth) && panelWidth > 0) {
-      document.documentElement.style.setProperty(
-        '--right-panel-width',
-        `${Math.ceil(panelWidth)}px`
-      );
+      const computedWidth = `${Math.ceil(panelWidth)}px`;
+      if (computedWidth !== lastRightPanelWidth) {
+        document.documentElement.style.setProperty('--right-panel-width', computedWidth);
+        lastRightPanelWidth = computedWidth;
+      }
     }
   }
 
@@ -1231,18 +1312,18 @@ function syncPanelWidths(root) {
 
   const width = Math.max(0, right - left);
 
-  document.documentElement.style.setProperty(
-    '--layout-content-width',
-    `${Math.ceil(width || blockRect.width)}px`
-  );
+  const layoutWidth = `${Math.ceil(width || blockRect.width)}px`;
+  if (layoutWidth !== lastLayoutContentWidth) {
+    document.documentElement.style.setProperty('--layout-content-width', layoutWidth);
+    lastLayoutContentWidth = layoutWidth;
+  }
 }
 
 function ensureWidthSyncListener() {
   if (widthSyncListenerAttached || typeof window === 'undefined') return;
   const handler = () => {
-    if (widthSyncRoot) {
-      syncPanelWidths(widthSyncRoot);
-    }
+    widthSyncDirty = true;
+    schedulePanelWidthSync(widthSyncRoot);
   };
   window.addEventListener('resize', handler);
   widthSyncListenerAttached = true;

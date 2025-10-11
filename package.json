@@ -1,10 +1,10 @@
 {
   "name": "cheatsheet",
   "version": "1.0.0",
-  "description": "Interactive reference for the SolidCAM team that combines the package matrix, maintenance lookups, and a built-in comms toolkit. Everything runs client-side – open `index.html` in any modern browser and you’re ready to work offline.",
+  "description": "Interactive reference for the SolidCAM team that combines the package matrix, maintenance lookups, and a built-in comms toolkit. Everything runs client-side - open `index.html` in any modern browser and you're ready to work offline.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node scripts/test-add-template.js"
   },
   "repository": {
     "type": "git",
