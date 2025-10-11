@@ -1,53 +1,31 @@
-import { JSDOM } from 'jsdom';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { bootstrapDom, waitForTasks } from './jsdom-setup.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const { document, window, cleanup } = bootstrapDom();
 
-const html = fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf-8');
-const dom = new JSDOM(html, {
-  runScripts: 'dangerously',
-  resources: 'usable',
-  url: 'https://localhost/'
-});
+try {
+  const { initializeEmailTemplates } = await import('../assets/js/email-templates.js');
 
-const { window } = dom;
+  initializeEmailTemplates();
+  await waitForTasks();
 
-Object.defineProperty(window, 'localStorage', {
-  value: (() => {
-    const store = new Map();
-    return {
-      getItem: key => (store.has(key) ? store.get(key) : null),
-      setItem: (key, value) => store.set(key, value),
-      removeItem: key => store.delete(key),
-      clear: () => store.clear(),
-    };
-  })(),
-});
+  const list = document.querySelector('[data-template-list]');
+  const firstItem = list?.firstElementChild;
 
-Object.assign(global, {
-  window,
-  document: window.document,
-  navigator: window.navigator,
-  localStorage: window.localStorage,
-  performance: { getEntriesByType: () => [{ type: 'navigate' }] }
-});
+  if (!list || !firstItem) {
+    console.log('emailTemplates', JSON.stringify({ templates: 0 }));
+    process.exit(1);
+  }
 
-navigator.clipboard = {
-  writeText: async () => {}
-};
+  firstItem.dispatchEvent(new window.Event('click', { bubbles: true }));
 
-const mod = await import('../assets/js/email-templates.js');
+  const payload = {
+    templates: list.children.length,
+    selectedName: document.querySelector('[data-field="name"]')?.value ?? '',
+    selectedSubject: document.querySelector('[data-field="subject"]')?.value ?? '',
+    bodyLength: document.querySelector('[data-field="body"]')?.value.length ?? 0,
+  };
 
-mod.initializeEmailTemplates();
-
-const list = document.querySelector('[data-template-list]');
-console.log('templates rendered', list.children.length);
-
-list.firstElementChild.dispatchEvent(new window.Event('click', { bubbles: true }));
-
-console.log('selected name', document.querySelector('[data-field="name"]').value);
-console.log('selected subject', document.querySelector('[data-field="subject"]').value);
-console.log('selected body length', document.querySelector('[data-field="body"]').value.length);
+  console.log('emailTemplates', JSON.stringify(payload));
+} finally {
+  cleanup();
+}
