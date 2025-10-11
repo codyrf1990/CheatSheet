@@ -76,30 +76,11 @@
     </div>
   </section>
 
+  <section class="chatbot-section" aria-label="Chatbot Assistant">
+    <div data-chatbot-container></div>
+  </section>
+
   <script type="module" src="assets/js/app.js?v=20250110.1"></script>
-  <script>
-    // Aggressive cache busting stays in local/dev only to avoid breaking production refreshes
-    const devHosts = new Set(['localhost', '127.0.0.1', '']);
-    const isDevEnvironment =
-      devHosts.has(location.hostname) ||
-      location.hostname.endsWith('.local') ||
-      location.protocol === 'file:';
-
-    if (isDevEnvironment) {
-      document.addEventListener('DOMContentLoaded', function() {
-        const timestamp = Date.now() + Math.random();
-        const css = document.querySelector('link[href*="main.css"]');
-        const js = document.querySelector('script[src*="app.js"]');
-
-        if (css) css.href += '&t=' + timestamp;
-        if (js) js.src += '&t=' + timestamp;
-
-        const navEntries = performance.getEntriesByType?.('navigation') || [];
-        if (navEntries[0]?.type === 'back_forward') {
-          window.location.reload();
-        }
-      });
-    }
-  </script>
+  <script type="module" src="assets/js/dev-cache-bust.js?v=20250110.1"></script>
 </body>
 </html>

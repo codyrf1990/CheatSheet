@@ -2,10 +2,42 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": ["@playwright/mcp@latest", "--extension"],
+      "args": [
+        "@playwright/mcp@latest",
+        "--extension"
+      ],
       "env": {
-        "PLAYWRIGHT_MCP_EXTENSION_TOKEN":
-          "oa4rHYXmk7BUx_FaD7XrZOokhXb47531WC7k8_DbNKs"
+        "PLAYWRIGHT_MCP_EXTENSION_TOKEN": "oa4rHYXmk7BUx_FaD7XrZOokhXb47531WC7k8_DbNKs"
+      }
+    },
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "env": {
+        "DEFAULT_MINIMUM_TOKENS": ""
+      }
+    },
+    "github": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "-e",
+        "GITHUB_TOOLSETS",
+        "-e",
+        "GITHUB_READ_ONLY",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "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",
+        "GITHUB_TOOLSETS": "",
+        "GITHUB_READ_ONLY": ""
       }
     }
   }
