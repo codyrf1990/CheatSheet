@@ -59,41 +59,15 @@ function extractFromPackages(packages = []) {
 }
 
 function extractFromSelections(selections = {}) {
-  const packages = selections.packages || [];
-  if (!packages.length) return [];
-
-  const docs = packages.map(pkg => {
-    const lines = [];
-    if (pkg.notes?.length) {
-      lines.push(`General notes: ${pkg.notes.join(', ')}`);
+  const list = selections.checkedPackages || [];
+  if (!list.length) return [];
+  return [
+    {
+      title: 'Checked Packages',
+      content: list.join(', '),
+      importance: 1.2
     }
-    if (pkg.looseBits?.length) {
-      lines.push(`Loose bits: ${pkg.looseBits.join(', ')}`);
-    }
-    if (pkg.masterGroups?.length) {
-      pkg.masterGroups.forEach(group => {
-        if (group.items?.length) {
-          lines.push(`${group.label}: ${group.items.join(', ')}`);
-        } else {
-          lines.push(`${group.label}: entire group selected`);
-        }
-      });
-    }
-    const header = pkg.name ? `${pkg.code} – ${pkg.name}` : pkg.code;
-    return {
-      title: `Selected Package ${header}`,
-      content: lines.join('\n') || 'No specific options recorded.',
-      importance: 1.5
-    };
-  });
-
-  docs.push({
-    title: 'Package Selection Summary',
-    content: `Packages selected (${packages.length}): ${packages.map(pkg => pkg.code).join(', ')}. Total checked options: ${selections.totalChecked || 0}.`,
-    importance: 1.1
-  });
-
-  return docs;
+  ];
 }
 
 function extractFromTemplates(templates = {}) {
