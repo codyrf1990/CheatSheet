@@ -488,15 +488,13 @@ function renderPackageRow(pkg) {
   const safeCode = escapeHtml(pkg.code);
   const safeCodeAttr = escapeAttr(pkg.code);
   const safeDescription = escapeHtml(pkg.description);
-  const safeDescriptionAttr = escapeAttr(pkg.description);
   const safeMaintenance = escapeHtml(pkg.maintenance);
-  const safeMaintenanceAttr = escapeAttr(pkg.maintenance);
 
   return `
-    <tr data-package="${safeCodeAttr}" data-package-name="${safeDescriptionAttr}" data-maintenance="${safeMaintenanceAttr}">
+    <tr data-package="${safeCodeAttr}">
       <td class="pkg">
-        <code class="package-code">${safeCode}</code>
-        <span class="package-description">${safeDescription}</span>
+        <code>${safeCode}</code>
+        <span>${safeDescription}</span>
       </td>
       <td class="maint">
         <code>${safeMaintenance}</code>

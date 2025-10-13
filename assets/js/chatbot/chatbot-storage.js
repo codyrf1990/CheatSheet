@@ -4,132 +4,60 @@ const STORAGE_KEYS = {
   prompts: 'solidcam.chatbot.prompts'
 };
 
-const DEFAULT_PROMPTS = {
-  package: {
-    id: 'prompt-package',
-    name: 'SolidCAM Package Architect',
+const DEFAULT_PROMPTS = [
+  {
+    id: 'solidcam-default',
+    name: 'SolidCAM Sales & Support',
     content: [
-      'You are the SolidCAM Package Architect assisting sales engineers with configuring SolidCAM product packages, maintenance coverage, hardware licensing, and SolidWorks integrations.',
-      'Interpret the current package selections, loose bits, and master groups to recommend next steps, highlight required dependencies, and flag gaps in maintenance or dongle coverage.',
-      'Explain pricing or code impacts clearly, cite the packages or options you reference, and ask for any missing context needed to finalize a quote.'
-    ].join(' ')
-  },
-  general: {
-    id: 'prompt-general',
-    name: 'SolidCAM Enterprise Assistant',
-    content: [
-      'You are the SolidCAM Enterprise Assistant supporting internal teams with communication drafts, research, policy clarification, and operational questions.',
-      'Adopt a professional, action-driven tone, provide concise recommendations, and surface follow-up questions when more detail is needed.',
-      'Reference company context from the discussion history when it strengthens the response, and flag topics that require external confirmation.'
-    ].join(' ')
+      "You are SolidCAM's internal sales and support assistant.",
+      'Provide concise, actionable answers about SolidCAM product packages, maintenance SKUs, SolidWorks integrations, pricing considerations, and recommended follow-up steps.',
+      'Cite relevant package names, checked options, and active template context when helpful.',
+      'If information is missing, explain what else you need before proceeding.'
+    ].join(' '),
+    readOnly: true,
+    updatedAt: 0
   }
-};
-
-const KNOWN_PROVIDERS = ['google', 'openrouter', 'deepseek'];
-
-const DEFAULT_PROVIDER_MODELS = {
-  google: 'gemini-2.0-flash',
-  openrouter: 'anthropic/claude-3.5-sonnet',
-  deepseek: 'deepseek-chat'
-};
+];
 
 const DEFAULT_SETTINGS = {
   provider: 'google',
-  apiKeys: {
-    google: '',
-    openrouter: '',
-    deepseek: ''
-  },
-  providerModels: { ...DEFAULT_PROVIDER_MODELS },
-  activeMode: 'package',
-  lastConversationIds: {
-    package: null,
-    general: null
-  },
-  sidebarWidths: {},
-  showDebugPanel: false
+  apiKey: '',
+  activePromptId: DEFAULT_PROMPTS[0].id,
+  lastConversationId: null
 };
 
 const API_KEY_SEED = 'solidcam-assistant';
 
 export function loadPrompts() {
-  const stored = readJson(STORAGE_KEYS.prompts, null);
-  if (!stored) {
-    return cloneDefaultPrompts();
+  const stored = readJson(STORAGE_KEYS.prompts, []);
+  if (!Array.isArray(stored)) {
+    return [...DEFAULT_PROMPTS];
   }
-  if (Array.isArray(stored)) {
-    // Legacy prompt array: map first entry to package, second to general.
-    const [first, second] = stored;
-    return sanitizePrompts({
-      package: first,
-      general: second
-    });
-  }
-  return sanitizePrompts(stored);
+
+  const merged = mergePrompts(stored);
+  return merged;
 }
 
 export function savePrompts(prompts) {
-  const sanitized = sanitizePrompts(prompts);
-  writeJson(STORAGE_KEYS.prompts, sanitized);
+  if (!Array.isArray(prompts)) return;
+  writeJson(STORAGE_KEYS.prompts, prompts);
 }
 
 export function resetPrompts() {
-  savePrompts(cloneDefaultPrompts());
+  savePrompts([...DEFAULT_PROMPTS]);
 }
 
 export function loadSettings() {
   const stored = readJson(STORAGE_KEYS.settings, {});
-  const mergedRaw = {
+  return {
     ...DEFAULT_SETTINGS,
     ...(stored && typeof stored === 'object' ? stored : {})
   };
-
-  // Legacy migration: activePromptId -> activeMode, lastConversationId -> package bucket.
-  if (mergedRaw.activePromptId && !mergedRaw.activeMode) {
-    mergedRaw.activeMode = mergedRaw.activePromptId === DEFAULT_PROMPTS.general.id ? 'general' : 'package';
-  }
-  if (mergedRaw.lastConversationId) {
-    mergedRaw.lastConversationIds = {
-      ...mergedRaw.lastConversationIds,
-      package: mergedRaw.lastConversationIds?.package || mergedRaw.lastConversationId
-    };
-  }
-  delete mergedRaw.activePromptId;
-  delete mergedRaw.lastConversationId;
-
-  const legacyApiKey =
-    typeof mergedRaw.apiKey === 'string' && mergedRaw.apiKey.trim() ? mergedRaw.apiKey.trim() : null;
-  delete mergedRaw.apiKey;
-
-  const merged = {
-    ...mergedRaw,
-    apiKeys: sanitizeApiKeys(mergedRaw.apiKeys, legacyApiKey),
-    providerModels: sanitizeProviderModels(mergedRaw.providerModels),
-    sidebarWidths: sanitizeSidebarWidths(mergedRaw.sidebarWidths),
-    activeMode: sanitizeMode(mergedRaw.activeMode),
-    lastConversationIds: sanitizeLastConversationIds(mergedRaw.lastConversationIds),
-    showDebugPanel: Boolean(mergedRaw.showDebugPanel)
-  };
-
-  if (!KNOWN_PROVIDERS.includes(merged.provider)) {
-    merged.provider = DEFAULT_SETTINGS.provider;
-  }
-
-  return merged;
 }
 
 export function saveSettings(settings) {
   if (!settings || typeof settings !== 'object') return;
-  const payload = {
-    ...settings,
-    apiKeys: sanitizeApiKeys(settings.apiKeys),
-    providerModels: sanitizeProviderModels(settings.providerModels),
-    sidebarWidths: sanitizeSidebarWidths(settings.sidebarWidths),
-    activeMode: sanitizeMode(settings.activeMode),
-    lastConversationIds: sanitizeLastConversationIds(settings.lastConversationIds),
-    showDebugPanel: Boolean(settings.showDebugPanel)
-  };
-  writeJson(STORAGE_KEYS.settings, payload);
+  writeJson(STORAGE_KEYS.settings, settings);
 }
 
 export function loadConversations() {
@@ -151,14 +79,13 @@ export function saveConversations(conversations) {
 
 export function createConversation(options = {}) {
   const now = Date.now();
-  const mode = sanitizeMode(options.mode) || DEFAULT_SETTINGS.activeMode;
   return {
     id: generateId('conv'),
     title: options.title || 'New Conversation',
     createdAt: now,
     updatedAt: now,
-    mode,
-    messages: Array.isArray(options.messages) ? options.messages : []
+    promptId: options.promptId || DEFAULT_SETTINGS.activePromptId,
+    messages: []
   };
 }
 
@@ -183,6 +110,42 @@ export function revealKey(obfuscated) {
   }
 }
 
+export function mergePrompts(existing = []) {
+  const byId = new Map();
+  [...existing].forEach(prompt => {
+    if (!prompt || typeof prompt !== 'object') return;
+    if (!prompt.id) return;
+    byId.set(prompt.id, sanitizePrompt(prompt));
+  });
+  DEFAULT_PROMPTS.forEach(prompt => {
+    if (!byId.has(prompt.id)) {
+      byId.set(prompt.id, { ...prompt });
+    } else {
+      const current = byId.get(prompt.id);
+      byId.set(prompt.id, {
+        ...prompt,
+        ...current,
+        id: prompt.id,
+        readOnly: true
+      });
+    }
+  });
+  return Array.from(byId.values());
+}
+
+export function sanitizePrompt(prompt) {
+  if (!prompt || typeof prompt !== 'object') return null;
+  const id = typeof prompt.id === 'string' && prompt.id.trim() ? prompt.id.trim() : null;
+  if (!id) return null;
+  return {
+    id,
+    name: typeof prompt.name === 'string' && prompt.name.trim() ? prompt.name.trim() : 'Untitled Prompt',
+    content: typeof prompt.content === 'string' ? prompt.content : '',
+    readOnly: Boolean(prompt.readOnly),
+    updatedAt: typeof prompt.updatedAt === 'number' ? prompt.updatedAt : Date.now()
+  };
+}
+
 export function sanitizeConversation(conversation) {
   if (!conversation || typeof conversation !== 'object') return null;
   if (!conversation.id) return null;
@@ -194,8 +157,10 @@ export function sanitizeConversation(conversation) {
       : 'Conversation',
     createdAt: typeof conversation.createdAt === 'number' ? conversation.createdAt : Date.now(),
     updatedAt: typeof conversation.updatedAt === 'number' ? conversation.updatedAt : Date.now(),
-    mode: sanitizeMode(conversation.mode) || 'package',
-    messages: messages.map(message => sanitizeMessage(message)).filter(Boolean)
+    promptId: conversation.promptId || DEFAULT_SETTINGS.activePromptId,
+    messages: messages
+      .map(message => sanitizeMessage(message))
+      .filter(Boolean)
   };
 }
 
@@ -211,89 +176,6 @@ export function sanitizeMessage(message) {
     createdAt: typeof message.createdAt === 'number' ? message.createdAt : Date.now(),
     error: Boolean(message.error)
   };
-}
-
-function sanitizePrompts(prompts) {
-  const defaults = cloneDefaultPrompts();
-  if (!prompts || typeof prompts !== 'object') {
-    return defaults;
-  }
-  return {
-    package: sanitizePromptEntry(prompts.package, defaults.package),
-    general: sanitizePromptEntry(prompts.general, defaults.general)
-  };
-}
-
-function sanitizePromptEntry(entry, fallback) {
-  const base = fallback || cloneDefaultPrompts().package;
-  if (!entry || typeof entry !== 'object') {
-    return { ...base };
-  }
-  const name =
-    typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : base.name;
-  const content =
-    typeof entry.content === 'string' && entry.content.trim() ? entry.content.trim() : base.content;
-  return {
-    id: base.id,
-    name,
-    content
-  };
-}
-
-function sanitizeSidebarWidths(value) {
-  const result = {};
-  if (!value || typeof value !== 'object') {
-    return result;
-  }
-  ['conversations', 'settings'].forEach(key => {
-    const width = Number(value[key]);
-    if (Number.isFinite(width) && width > 0) {
-      result[key] = Math.round(width);
-    }
-  });
-  return result;
-}
-
-function sanitizeApiKeys(value, legacyGoogleKey = null) {
-  const result = {};
-  const source = value && typeof value === 'object' ? value : {};
-  KNOWN_PROVIDERS.forEach(provider => {
-    const raw = source[provider];
-    result[provider] = typeof raw === 'string' ? raw : '';
-  });
-  if (legacyGoogleKey && !result.google) {
-    result.google = legacyGoogleKey;
-  }
-  return result;
-}
-
-function sanitizeProviderModels(value) {
-  const result = { ...DEFAULT_PROVIDER_MODELS };
-  if (!value || typeof value !== 'object') {
-    return result;
-  }
-  KNOWN_PROVIDERS.forEach(provider => {
-    const raw = value[provider];
-    if (typeof raw === 'string' && raw.trim()) {
-      result[provider] = raw.trim();
-    }
-  });
-  return result;
-}
-
-function sanitizeLastConversationIds(value) {
-  const base = { ...DEFAULT_SETTINGS.lastConversationIds };
-  if (!value || typeof value !== 'object') {
-    return base;
-  }
-  return {
-    package: typeof value.package === 'string' && value.package.trim() ? value.package.trim() : base.package,
-    general: typeof value.general === 'string' && value.general.trim() ? value.general.trim() : base.general
-  };
-}
-
-function sanitizeMode(value) {
-  return value === 'general' ? 'general' : 'package';
 }
 
 function readJson(key, fallback) {
@@ -350,13 +232,6 @@ function base64Decode(value) {
     return Buffer.from(value, 'base64').toString('utf8');
   }
   throw new Error('No base64 decoder available');
-}
-
-function cloneDefaultPrompts() {
-  return {
-    package: { ...DEFAULT_PROMPTS.package },
-    general: { ...DEFAULT_PROMPTS.general }
-  };
 }
 
 export { DEFAULT_PROMPTS, DEFAULT_SETTINGS };

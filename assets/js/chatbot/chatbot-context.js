@@ -82,32 +82,16 @@ function readPackages() {
   const rows = Array.from(document.querySelectorAll('.main-table tbody tr[data-package]'));
   return rows.map(row => {
     const code = row.getAttribute('data-package');
-    const name =
-      row.getAttribute('data-package-name') ||
-      row.querySelector('.package-description')?.textContent?.trim() ||
-      '';
-    const maintenance =
-      row.getAttribute('data-maintenance') ||
-      row.querySelector('.maint code')?.textContent?.trim() ||
-      '';
-    const looseBits = Array.from(row.querySelectorAll('.bits > li[data-bit]'))
-      .map(bit => bit.getAttribute('data-bit') || bit.querySelector('span')?.textContent?.trim())
-      .filter(Boolean);
-    const masterGroups = Array.from(row.querySelectorAll('.master-bit')).map(group => {
-      const label =
-        group.getAttribute('data-master-label') ||
-        group.querySelector('.master-label span')?.textContent?.trim() ||
-        '';
-      const items = Array.from(group.querySelectorAll('.sub-bits li[data-bit] span'))
-        .map(bit => bit.textContent?.trim())
-        .filter(Boolean);
+    const description = row.querySelector('.package-description')?.textContent?.trim() || '';
+    const looseBits = Array.from(row.querySelectorAll('.loose-bit')).map(bit => bit.textContent?.trim()).filter(Boolean);
+    const masterGroups = Array.from(row.querySelectorAll('[data-master-group]')).map(group => {
+      const label = group.getAttribute('data-master-group');
+      const items = Array.from(group.querySelectorAll('.bit-label')).map(bit => bit.textContent?.trim()).filter(Boolean);
       return { label, items };
     });
     return {
       code,
-      name,
-      description: name,
-      maintenance,
+      description,
       looseBits,
       masterGroups
     };
@@ -125,95 +109,11 @@ function readTemplates() {
 }
 
 function readSelections() {
-  if (typeof document === 'undefined') {
-    return {
-      checkedPackages: [],
-      packages: [],
-      totalChecked: 0
-    };
-  }
-
+  if (typeof document === 'undefined') return { checkedPackages: [] };
   const checked = Array.from(document.querySelectorAll('.bit-checkbox:checked'));
-  const byPackage = new Map();
-
-  const ensurePackageEntry = pkgRow => {
-    const code = pkgRow?.getAttribute('data-package');
-    if (!code) return null;
-    if (!byPackage.has(code)) {
-      const name =
-        pkgRow.getAttribute('data-package-name') ||
-        pkgRow.querySelector('.package-description')?.textContent?.trim() ||
-        '';
-      const maintenance = pkgRow.getAttribute('data-maintenance') || '';
-      byPackage.set(code, {
-        code,
-        name,
-        maintenance,
-        notes: new Set(),
-        looseBits: new Set(),
-        masterGroups: new Map()
-      });
-    }
-    return byPackage.get(code);
-  };
-
-  checked.forEach(cb => {
-    const pkgRow = cb.closest('tr[data-package]');
-    const entry = ensurePackageEntry(pkgRow);
-    if (!entry) return;
-
-    const label = cb.closest('label');
-    const text =
-      label?.querySelector('span')?.textContent?.trim() ||
-      label?.textContent?.trim() ||
-      cb.closest('[data-bit]')?.getAttribute('data-bit') ||
-      '';
-
-    const masterLabel =
-      cb.closest('.master-bit')?.getAttribute('data-master-label') ||
-      cb.getAttribute('data-parent') ||
-      '';
-
-    if (cb.classList.contains('master-checkbox')) {
-      if (masterLabel) {
-        const group = entry.masterGroups.get(masterLabel) || { items: new Set(), allSelected: false };
-        group.allSelected = true;
-        entry.masterGroups.set(masterLabel, group);
-      } else if (text) {
-        entry.notes.add(text);
-      }
-    } else if (cb.classList.contains('sub-checkbox')) {
-      if (masterLabel) {
-        const group = entry.masterGroups.get(masterLabel) || { items: new Set(), allSelected: false };
-        if (text) {
-          group.items.add(text);
-        }
-        entry.masterGroups.set(masterLabel, group);
-      } else if (text) {
-        entry.notes.add(text);
-      }
-    } else {
-      if (text) {
-        entry.looseBits.add(text);
-      }
-    }
-  });
-
-  const packages = Array.from(byPackage.values()).map(entry => ({
-    code: entry.code,
-    name: entry.name,
-    maintenance: entry.maintenance,
-    looseBits: Array.from(entry.looseBits),
-    masterGroups: Array.from(entry.masterGroups.entries()).map(([label, set]) => ({
-      label,
-      items: set.allSelected ? ['All options'] : Array.from(set.items)
-    })),
-    notes: Array.from(entry.notes)
-  }));
-
   return {
-    checkedPackages: packages.map(pkg => pkg.code),
-    packages,
-    totalChecked: checked.length
+    checkedPackages: checked
+      .map(cb => cb.closest('tr[data-package]')?.getAttribute('data-package'))
+      .filter(Boolean)
   };
 }

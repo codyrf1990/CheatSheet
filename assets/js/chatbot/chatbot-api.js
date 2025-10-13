@@ -11,34 +11,29 @@ export class ChatbotApiManager {
   async sendMessage({
     messages = [],
     prompt,
-    provider = 'google',
-    model,
+    provider = 'deepseek',
     apiKey,
     context,
     ragResults = [],
     onToken
   }) {
-    const providerId = PROVIDERS[provider] ? provider : DEFAULT_PROVIDER_ID;
-    const config = PROVIDERS[providerId];
-    const targetModel = resolveModel(config, model);
+    const config = PROVIDERS[provider] || PROVIDERS.deepseek;
 
     if (!this.fetchImpl) {
-      return buildFallbackResponse(messages, prompt, providerId, targetModel, context, ragResults, onToken);
+      return buildFallbackResponse(messages, prompt, provider, context, ragResults, onToken);
     }
 
     if (!apiKey) {
       throw new ChatbotApiError('API_KEY_MISSING', 'No API key configured for provider.');
     }
 
-    const payload = config.buildPayload({ messages, prompt, context, ragResults, model: targetModel });
+    const payload = config.buildPayload({ messages, prompt, context, ragResults });
     const url =
-      typeof config.resolveEndpoint === 'function'
-        ? config.resolveEndpoint(apiKey, targetModel)
-        : config.endpoint;
+      typeof config.resolveEndpoint === 'function' ? config.resolveEndpoint(apiKey) : config.endpoint;
 
     const requestInit = {
       method: 'POST',
-      headers: config.headers(apiKey, targetModel),
+      headers: config.headers(apiKey),
       body: JSON.stringify(payload)
     };
 
@@ -55,17 +50,11 @@ export class ChatbotApiManager {
           });
         }
 
-        if (config.streaming && response.body) {
+        if (payload.stream && response.body) {
           const text = await streamResponse(response, chunk => {
             if (typeof onToken === 'function') {
               onToken(chunk);
             }
-          });
-          console.debug('[SolidCAM Chat API]', {
-            provider: providerId,
-            model: targetModel,
-            streaming: true,
-            length: text?.length || 0
           });
           return {
             text,
@@ -78,12 +67,6 @@ export class ChatbotApiManager {
         if (typeof onToken === 'function') {
           onToken(text);
         }
-        console.debug('[SolidCAM Chat API]', {
-          provider: providerId,
-          model: targetModel,
-          streaming: false,
-          length: text?.length || 0
-        });
         return {
           text,
           ragResults
@@ -115,81 +98,43 @@ class ChatbotApiError extends Error {
   }
 }
 
-const GOOGLE_BASE_URL = 'https://generativelanguage.googleapis.com/v1alpha';
-
 const PROVIDERS = {
-  google: {
-    id: 'google',
-    label: 'Google Gemini',
-    description: 'Direct Google Gemini API access (free tier friendly).',
-    defaultModel: 'gemini-2.0-flash',
-    models: [
-      { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (default, free)', tier: 'free' },
-      { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash Experimental', tier: 'preview' },
-      { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', tier: 'standard' },
-      { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash', tier: 'standard' },
-      { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite (preview)', tier: 'preview' },
-      { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (preview)', tier: 'preview' },
-      {
-        value: 'gemini-2.5-flash-image-preview',
-        label: 'Gemini 2.5 Flash Image Preview',
-        tier: 'preview'
-      }
-    ],
-    streaming: true,
+  deepseek: {
+    endpoint: 'https://api.deepseek.com/v1/chat/completions',
+    model: 'deepseek-chat',
     buildPayload({ messages, prompt, context, ragResults }) {
-      const composed = composeMessages({ messages, prompt, context, ragResults }).map(msg => ({
-        role: mapGoogleRole(msg.role),
-        parts: [{ text: msg.content }]
-      }));
-      return { contents: composed };
-    },
-    resolveEndpoint(apiKey, model) {
-      const encodedModel = encodeURIComponent(model);
-      return `${GOOGLE_BASE_URL}/models/${encodedModel}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
-    },
-    headers() {
       return {
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream'
-      };
-    },
-    extractText(data) {
-      const candidates = data?.candidates || [];
-      const first = candidates[0]?.content?.parts?.[0]?.text;
-      return first || '';
-    }
-  },
-  openrouter: {
-    id: 'openrouter',
-    label: 'OpenRouter',
-    description: 'Meta-provider offering frontier and community models.',
-    defaultModel: 'anthropic/claude-3.5-sonnet',
-    models: [
-      { value: 'google/gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite', tier: 'premium' },
-      { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet', tier: 'premium' },
-      { value: 'openai/gpt-4o', label: 'GPT-4o', tier: 'premium' },
-      { value: 'meta-llama/llama-3.1-405b', label: 'Llama 3.1 405B', tier: 'premium' },
-      { value: 'qwen/qwen3-235b-a22b', label: 'Qwen 3 235B A22B', tier: 'premium' },
-      { value: 'google/gemini-flash-1.5', label: 'Gemini Flash 1.5 (free)', tier: 'free' },
-      { value: 'microsoft/wizardlm-2-8x22b', label: 'WizardLM 2 8x22B (free)', tier: 'free' },
-      { value: 'meta-llama/llama-3.2-3b-instruct', label: 'Llama 3.2 3B Instruct (free)', tier: 'free' },
-      { value: 'qwen/qwen2.5-7b', label: 'Qwen 2.5 7B (free)', tier: 'free' },
-      { value: 'deepseek/deepseek-chat', label: 'DeepSeek Chat (free)', tier: 'free' }
-    ],
-    streaming: true,
-    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-    buildPayload({ messages, prompt, context, ragResults, model }) {
-      return {
-        model,
+        model: this.model,
         stream: true,
         temperature: 0.2,
         messages: composeMessages({ messages, prompt, context, ragResults })
       };
     },
-    headers(apiKey) {
+    headers(key) {
       return {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream'
+      };
+    },
+    extractText(data) {
+      return data?.choices?.[0]?.message?.content || '';
+    }
+  },
+  openrouter: {
+    endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+    model: 'google/gemini-2.0-flash',
+    buildPayload({ messages, prompt, context, ragResults }) {
+      return {
+        model: this.model,
+        stream: true,
+        temperature: 0.2,
+        messages: composeMessages({ messages, prompt, context, ragResults })
+      };
+    },
+    headers(key) {
+      return {
+        Authorization: `Bearer ${key}`,
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
         'HTTP-Referer': getRefererHeader(),
@@ -200,92 +145,36 @@ const PROVIDERS = {
       return data?.choices?.[0]?.message?.content || '';
     }
   },
-  deepseek: {
-    id: 'deepseek',
-    label: 'DeepSeek',
-    description: 'DeepSeek API with chat, reasoning, and coding models.',
-    defaultModel: 'deepseek-chat',
-    models: [
-      { value: 'deepseek-chat', label: 'DeepSeek Chat', tier: 'standard' },
-      { value: 'deepseek-reasoner', label: 'DeepSeek Reasoner', tier: 'standard' },
-      { value: 'deepseek-coder', label: 'DeepSeek Coder', tier: 'standard' }
-    ],
-    streaming: true,
-    endpoint: 'https://api.deepseek.com/v1/chat/completions',
-    buildPayload({ messages, prompt, context, ragResults, model }) {
+  google: {
+    endpoint: 'https://generativelanguage.googleapis.com/v1alpha/models/gemini-2.0-flash:streamGenerateContent',
+    model: 'models/gemini-2.0-flash',
+    buildPayload({ messages, prompt, context, ragResults }) {
+      const composed = composeMessages({ messages, prompt, context, ragResults }).map(msg => ({
+        role: mapGoogleRole(msg.role),
+        parts: [{ text: msg.content }]
+      }));
       return {
-        model,
-        stream: true,
-        temperature: 0.2,
-        messages: composeMessages({ messages, prompt, context, ragResults })
+        contents: composed
       };
     },
-    headers(apiKey) {
+    resolveEndpoint(apiKey) {
+      const separator = this.endpoint.includes('?') ? '&' : '?';
+      return `${this.endpoint}${separator}alt=sse&key=${encodeURIComponent(apiKey)}`;
+    },
+    headers(key) {
       return {
-        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        Accept: 'text/event-stream'
+        Accept: 'text/event-stream',
+        'x-goog-api-key': key
       };
     },
     extractText(data) {
-      return data?.choices?.[0]?.message?.content || '';
+      const candidates = data?.candidates || [];
+      const first = candidates[0]?.content?.parts?.[0]?.text;
+      return first || '';
     }
   }
 };
-
-const DEFAULT_PROVIDER_ID = 'google';
-
-function resolveModel(config, requestedModel) {
-  if (!config) {
-    return typeof requestedModel === 'string' && requestedModel.trim() ? requestedModel.trim() : '';
-  }
-  const available = Array.isArray(config.models) ? config.models : [];
-  const trimmed = typeof requestedModel === 'string' ? requestedModel.trim() : '';
-  if (trimmed && available.some(option => option.value === trimmed)) {
-    return trimmed;
-  }
-  if (config.defaultModel) {
-    return config.defaultModel;
-  }
-  return available[0]?.value || '';
-}
-
-function resolveModelLabel(config, value) {
-  if (!config) return value;
-  const match = config.models?.find(option => option.value === value);
-  if (match?.label) return match.label;
-  return value || config.defaultModel || '';
-}
-
-export function getProviderCatalog() {
-  return Object.values(PROVIDERS).map(provider => ({
-    id: provider.id,
-    label: provider.label,
-    description: provider.description,
-    defaultModel: provider.defaultModel,
-    models: provider.models.map(model => ({ ...model }))
-  }));
-}
-
-export function getProviderDefaultModel(providerId) {
-  const provider = PROVIDERS[providerId] || PROVIDERS[DEFAULT_PROVIDER_ID];
-  return resolveModel(provider);
-}
-
-export function getProviderLabel(providerId) {
-  const provider = PROVIDERS[providerId] || null;
-  return provider?.label || providerId || 'Provider';
-}
-
-export function getProviderModelOptions(providerId) {
-  const provider = PROVIDERS[providerId] || null;
-  if (!provider) return [];
-  return provider.models.map(model => ({ ...model }));
-}
-
-export function getSupportedProviderIds() {
-  return Object.keys(PROVIDERS);
-}
 
 function composeMessages({ messages = [], prompt, context, ragResults }) {
   const systemSections = [];
@@ -326,106 +215,45 @@ async function streamResponse(response, onToken) {
     return text;
   }
 
-  const decoder = new TextDecoder();
+  const decoder = new TextDecoder('utf-8');
   let buffer = '';
   let fullText = '';
 
   while (true) {
     const { value, done } = await reader.read();
     if (done) {
-      if (buffer) {
-        fullText = processSseBuffer(buffer, fullText, onToken);
-      }
       break;
     }
     buffer += decoder.decode(value, { stream: true });
-    const boundary = buffer.lastIndexOf('\n\n');
-    if (boundary !== -1) {
-      const chunk = buffer.slice(0, boundary);
-      buffer = buffer.slice(boundary + 2);
-      fullText = processSseBuffer(chunk, fullText, onToken);
+    const events = buffer.split('\n\n');
+    buffer = events.pop() || '';
+
+    for (const event of events) {
+      const lines = event.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        const payload = trimmed.slice(5).trim();
+        if (!payload || payload === STREAM_TERMINATOR) {
+          continue;
+        }
+        try {
+          const parsed = JSON.parse(payload);
+          const delta = parsed?.choices?.[0]?.delta?.content;
+          if (delta) {
+            fullText += delta;
+            if (typeof onToken === 'function') {
+              onToken(fullText);
+            }
+          }
+        } catch (error) {
+          // Ignore malformed chunks
+        }
+      }
     }
   }
 
   return fullText;
-}
-
-function processSseBuffer(source, currentText, onToken) {
-  let updatedText = currentText;
-  const events = source.split('\n\n');
-  events.forEach(eventBlock => {
-    if (!eventBlock) return;
-    const lines = eventBlock.split('\n');
-    lines.forEach(line => {
-      if (!line.startsWith('data:')) return;
-      const payload = line.slice(5).trim();
-      if (!payload || payload === STREAM_TERMINATOR) return;
-      try {
-        const parsed = JSON.parse(payload);
-        const nextText = extractStreamText(parsed, updatedText);
-        if (typeof nextText === 'string' && nextText !== updatedText) {
-          updatedText = nextText;
-          if (typeof onToken === 'function') {
-            onToken(updatedText);
-          }
-        }
-      } catch (error) {
-        // Ignore malformed chunks
-      }
-    });
-  });
-  return updatedText;
-}
-
-function extractStreamText(parsed, currentText) {
-  if (!parsed || typeof parsed !== 'object') {
-    return currentText;
-  }
-
-  const delta = parsed?.choices?.[0]?.delta?.content;
-  if (typeof delta === 'string' && delta.length) {
-    return mergeChunk(currentText, delta);
-  }
-
-  const candidate = Array.isArray(parsed?.candidates) ? parsed.candidates[0] : null;
-  if (candidate) {
-    if (Array.isArray(candidate?.content?.parts)) {
-      const addition = candidate.content.parts.map(part => part?.text || '').join('');
-      if (addition) {
-        return mergeChunk(currentText, addition);
-      }
-    }
-    if (Array.isArray(candidate?.content)) {
-      const addition = candidate.content.map(part => part?.text || '').join('');
-      if (addition) {
-        return mergeChunk(currentText, addition);
-      }
-    }
-    if (typeof candidate?.content?.text === 'string' && candidate.content.text) {
-      return mergeChunk(currentText, candidate.content.text);
-    }
-    if (typeof candidate?.output === 'string' && candidate.output) {
-      return mergeChunk(currentText, candidate.output);
-    }
-  }
-
-  const choiceMessage = parsed?.choices?.[0]?.message?.content;
-  if (typeof choiceMessage === 'string' && choiceMessage.length) {
-    return mergeChunk(currentText, choiceMessage);
-  }
-
-  return currentText;
-}
-
-function mergeChunk(current, addition) {
-  if (!addition) return current;
-  if (!current) return addition;
-  if (addition === current) return current;
-  if (addition.startsWith(current)) return addition;
-  if (current.endsWith(addition)) return current;
-  if (current.includes(addition)) return current;
-  if (addition.includes(current)) return addition;
-  return `${current}${addition}`;
 }
 
 function delay(ms) {
@@ -438,12 +266,10 @@ function delay(ms) {
   });
 }
 
-function buildFallbackResponse(messages, prompt, providerId, model, context, ragResults, onToken) {
+function buildFallbackResponse(messages, prompt, provider, context, ragResults, onToken) {
   const lastUserMessage = [...messages].reverse().find(entry => entry.role === 'user');
   const promptTitle = prompt?.name || 'SolidCAM Assistant';
-  const providerConfig = PROVIDERS[providerId] || PROVIDERS[DEFAULT_PROVIDER_ID];
-  const providerLabel = providerConfig?.label || (providerId ? providerId.toUpperCase() : 'LOCAL');
-  const modelLabel = resolveModelLabel(providerConfig, model);
+  const providerLabel = provider ? provider.toUpperCase() : 'LOCAL';
   const contextNote = buildContextSummary(context) || 'No context available.';
   const ragNote = buildRagSummary(ragResults) || 'No references available.';
 
@@ -452,7 +278,7 @@ function buildFallbackResponse(messages, prompt, providerId, model, context, rag
     : 'I did not receive any question.';
 
   const text = [
-    `[${promptTitle} | ${providerLabel}${modelLabel ? ` (${modelLabel})` : ''}]`,
+    `[${promptTitle} | ${providerLabel}]`,
     acknowledgement,
     contextNote,
     ragNote,
@@ -463,14 +289,6 @@ function buildFallbackResponse(messages, prompt, providerId, model, context, rag
     onToken(text);
   }
 
-  console.debug('[SolidCAM Chat API]', {
-    provider: providerId,
-    model,
-    streaming: false,
-    length: text?.length || 0,
-    note: 'fallback-response'
-  });
-
   return {
     text,
     ragResults
@@ -479,46 +297,13 @@ function buildFallbackResponse(messages, prompt, providerId, model, context, rag
 
 function buildContextSummary(context) {
   if (!context) return '';
-  const lines = [];
-  const selections = Array.isArray(context.selections?.packages) ? context.selections.packages : [];
+  const packageCount = Array.isArray(context.packages) ? context.packages.length : 0;
+  const checked = Array.isArray(context.selections?.checkedPackages) ? context.selections.checkedPackages.length : 0;
+  const templateInfo = context.templates?.activeId
+    ? `Active template: ${context.templates.activeId}`
+    : 'No email template active.';
 
-  if (selections.length) {
-    lines.push('Package selections:');
-    selections.forEach(pkg => {
-      const headline = pkg.name ? `${pkg.code} (${pkg.name})` : pkg.code;
-      const detailParts = [];
-      if (Array.isArray(pkg.looseBits) && pkg.looseBits.length) {
-        detailParts.push(`Loose bits: ${pkg.looseBits.join(', ')}`);
-      }
-      if (Array.isArray(pkg.masterGroups)) {
-        pkg.masterGroups.forEach(group => {
-          if (group.label && Array.isArray(group.items) && group.items.length) {
-            detailParts.push(`${group.label}: ${group.items.join(', ')}`);
-          }
-        });
-      }
-      if (Array.isArray(pkg.notes) && pkg.notes.length) {
-        detailParts.push(`Notes: ${pkg.notes.join(', ')}`);
-      }
-      lines.push(`- ${headline}${detailParts.length ? ` -> ${detailParts.join('; ')}` : ''}`);
-    });
-  } else {
-    const packages = Array.isArray(context.packages) ? context.packages : [];
-    if (packages.length) {
-      lines.push('Observed packages:');
-      packages.slice(0, 5).forEach(pkg => {
-        const headline = pkg.name ? `${pkg.code} (${pkg.name})` : pkg.code;
-        const highlights = Array.isArray(pkg.looseBits) ? pkg.looseBits.slice(0, 3) : [];
-        lines.push(`- ${headline}${highlights.length ? ` | Loose bits: ${highlights.join(', ')}` : ''}`);
-      });
-    }
-  }
-
-  if (context.templates?.activeId) {
-    lines.push(`Active email template: ${context.templates.activeId}`);
-  }
-
-  return lines.join('\n');
+  return `Observed ${packageCount} packages (${checked} selected). ${templateInfo}`;
 }
 
 function buildRagSummary(results = [], forSystem = false) {
@@ -529,14 +314,13 @@ function buildRagSummary(results = [], forSystem = false) {
   const parts = results.slice(0, 3).map((entry, index) => {
     const title = entry.document?.title || `Reference ${index + 1}`;
     const snippet = (entry.document?.content || '').split('\n').find(Boolean) || '';
-    const cleanSnippet = snippet.trim();
     if (forSystem) {
-      return cleanSnippet ? `- ${title}: ${cleanSnippet}` : `- ${title}`;
+      return `- ${title}: ${snippet}`;
     }
-    return cleanSnippet ? `${title}: ${cleanSnippet}` : `${title}`;
+    return `${title}: ${snippet}`;
   });
 
-  return forSystem ? parts.join('\n') : parts.join(' | ');
+  return forSystem ? parts.join('\n') : `Relevant references -> ${parts.join(' | ')}`;
 }
 
 function mapGoogleRole(role) {
