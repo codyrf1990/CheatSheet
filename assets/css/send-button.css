@@ -1,0 +1,163 @@
+/* Enhanced Send Button Animations and Effects */
+.send-button {
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  cursor: pointer;
+  position: relative;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  padding: 0;
+  outline: none;
+}
+
+.send-button:hover {
+  transform: scale(1.15);
+  filter: brightness(1.3) saturate(1.2);
+}
+
+.send-button:hover::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  background: radial-gradient(circle,
+    rgba(229, 24, 55, 0.6) 0%,
+    rgba(255, 215, 0, 0.4) 40%,
+    rgba(255, 215, 0, 0.2) 70%,
+    transparent 100%);
+  border-radius: 50%;
+  animation: pulse-ring 1.5s ease-in-out infinite;
+  z-index: -1;
+}
+
+.send-button:hover::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  right: -12px;
+  bottom: -12px;
+  background: radial-gradient(circle,
+    transparent 0%,
+    rgba(255, 215, 0, 0.1) 60%,
+    rgba(255, 215, 0, 0.3) 80%,
+    rgba(229, 24, 55, 0.2) 100%);
+  border-radius: 50%;
+  animation: rotate-glow 3s linear infinite;
+  z-index: -2;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes rotate-glow {
+  0% {
+    transform: rotate(0deg);
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: rotate(360deg);
+    opacity: 0.3;
+  }
+}
+
+.send-button:active {
+  transform: scale(1.05);
+  filter: brightness(0.9);
+}
+
+.send-button.sending {
+  animation: sending-animation 2s ease-in-out infinite;
+}
+
+@keyframes sending-animation {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  25% {
+    opacity: 0.8;
+    transform: scale(1.1);
+    filter: brightness(1.4) hue-rotate(20deg);
+  }
+  75% {
+    opacity: 0.9;
+    transform: scale(0.95);
+    filter: brightness(0.8);
+  }
+}
+
+/* Success state with particle burst */
+.send-button.success {
+  animation: success-burst 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes success-burst {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  25% {
+    transform: scale(1.3);
+    filter: brightness(1.8) hue-rotate(45deg);
+  }
+  50% {
+    transform: scale(1.4);
+    filter: brightness(2) hue-rotate(90deg);
+  }
+  75% {
+    transform: scale(1.1);
+    filter: brightness(1.4) hue-rotate(45deg);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+/* Loading spinner for sending state */
+.send-button.sending::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 10;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Enhanced glow on focus */
+.send-button:focus {
+  outline: none;
+  box-shadow: 0 0 20px rgba(229, 24, 55, 0.6),
+              0 0 40px rgba(255, 215, 0, 0.4),
+              inset 0 0 20px rgba(255, 255, 255, 0.1);
+}
