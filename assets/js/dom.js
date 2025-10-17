@@ -115,6 +115,9 @@ export function renderApp(mount) {
 
   updateMasterCheckboxes(root);
   registerCopyHandlers(root, () => editMode, showCopyHud);
+  root.querySelectorAll('.bits li, .sub-bits li, .master-bit').forEach(item => {
+    bindBitCopyHandler(item, () => editMode, showCopyHud);
+  });
   widthSyncRoot = root;
   schedulePanelWidthSync(root);
   ensureWidthSyncListener();
@@ -221,17 +224,16 @@ function showCopyHud(posOrEl, message = 'Copied') {
   const textNode = el.querySelector('.copy-hud__text');
   if (textNode) textNode.textContent = message;
 
-  let top = window.scrollY + window.innerHeight / 2;
-  let left = window.scrollX + window.innerWidth / 2;
+  let top = window.innerHeight / 2;
+  let left = window.innerWidth / 2;
   if (posOrEl && typeof posOrEl === 'object') {
     if (typeof posOrEl.x === 'number' && typeof posOrEl.y === 'number') {
-      // Position exactly where the mouse clicked (client coords + scroll)
-      left = window.scrollX + posOrEl.x;
-      top = window.scrollY + posOrEl.y;
+      left = posOrEl.x;
+      top = posOrEl.y;
     } else if (typeof posOrEl.getBoundingClientRect === 'function') {
       const rect = posOrEl.getBoundingClientRect();
-      top = rect.top + rect.height / 2 + window.scrollY;
-      left = rect.left + rect.width / 2 + window.scrollX;
+      top = rect.top + rect.height / 2;
+      left = rect.left + rect.width / 2;
     }
   }
   el.style.top = `${top}px`;
@@ -240,6 +242,54 @@ function showCopyHud(posOrEl, message = 'Copied') {
   el.classList.add('show');
   clearTimeout(copyHudTimer);
   copyHudTimer = setTimeout(() => el.classList.remove('show'), 600);
+}
+
+/**
+ * Binds double-click copy handler to a bit's text span.
+ * Double-click copies the bit text to clipboard without affecting checkbox state.
+ * Copying is disabled during edit mode (consistent with code chips).
+ *
+ * @param {HTMLElement} listItem - The <li> or container element with the bit
+ * @param {Function} isEditMode - Function returning current edit mode state
+ * @param {Function} onCopy - Callback for copy notification (receives pos, text)
+ */
+function bindBitCopyHandler(listItem, isEditMode, onCopy) {
+  if (!listItem) return;
+
+  const textSpan = listItem.querySelector('label > span');
+  if (!textSpan || textSpan.dataset.copyBound === 'true') return;
+
+  textSpan.dataset.copyBound = 'true';
+
+  textSpan.addEventListener('dblclick', async e => {
+    if (isEditMode()) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const text = textSpan.textContent.trim();
+    if (!text) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+
+      textSpan.classList.add('bit-copied');
+      setTimeout(() => textSpan.classList.remove('bit-copied'), 400);
+
+      const pos = { x: e.clientX, y: e.clientY };
+      if (typeof onCopy === 'function') {
+        onCopy(pos, text);
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('copy-hud', {
+          detail: { x: pos.x, y: pos.y, target: textSpan, text }
+        })
+      );
+    } catch (error) {
+      console.error('Clipboard copy failed for bit:', text, error);
+    }
+  });
 }
 
 function renderHeader() {
@@ -400,7 +450,7 @@ function renderAboutOverlay() {
           </ul>
           <h4>Package & panel workflow</h4>
           <ul>
-            <li><strong>Included Bits</strong>: tick the bits that apply. Master groups like <em>25M</em> expand to show all bundled items.</li>
+            <li><strong>Included Bits</strong>: tick the bits that apply. Master groups like <em>25M</em> expand to show all bundled items. <strong>Double-click any bit name</strong> to copy it to your clipboard.</li>
             <li><strong>Add / Remove Bit</strong>: switch modes to insert or delete custom entries inside a package list.</li>
             <li><strong>Edit Order</strong>: toggles drag-and-drop across packages, loose bits, and reference panels; click again to save the layout.</li>
             <li><strong>Reset Order</strong>: restore the default ordering and remove custom rows.</li>
@@ -722,6 +772,7 @@ function handleAddBit(control, root) {
   const element = htmlToElement(looseBitMarkup({ text, checked: false }, scope));
   bitsList.appendChild(element);
   element.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
+  bindBitCopyHandler(element, () => editMode, showCopyHud);
 
   if (editMode) {
     enableDrag(element);
@@ -831,6 +882,7 @@ function handleSortableDrop(event, root) {
   replacement
     .querySelectorAll('code')
     .forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
+  bindBitCopyHandler(replacement, () => editMode, showCopyHud);
   if (editMode) {
     enableDrag(replacement);
   }
@@ -1100,6 +1152,10 @@ function applyState(root, state) {
     enableDrag(root);
   }
 
+  root.querySelectorAll('.bits li, .sub-bits li, .master-bit').forEach(item => {
+    bindBitCopyHandler(item, () => editMode, showCopyHud);
+  });
+
   schedulePanelWidthSync(root);
 }
 
@@ -1129,7 +1185,7 @@ function masterBitMarkup(group, scope) {
       <div class="master-header">
         <label class="master-label">
           <input type="checkbox" class="bit-checkbox master-checkbox" data-master="${safeMasterId}"${checkedAttr}${indeterminateAttr}>
-          <span>${safeLabel}</span>
+          <span data-copyable-bit="true">${safeLabel}</span>
         </label>
         <button type="button" class="bit-remove-btn master-remove-btn" data-action="remove-master" aria-label="Remove ${escapeAttr(label)} group">×</button>
       </div>
@@ -1152,7 +1208,7 @@ function subBitMarkup(masterId, bit, scope) {
     <li data-sortable-item data-bit="${safeAttrText}"${scopeAttr}>
       <label>
         <input type="checkbox" class="bit-checkbox sub-checkbox" data-parent="${safeMasterId}"${checkedAttr}>
-        <span>${safeText}</span>
+        <span data-copyable-bit="true">${safeText}</span>
       </label>
       <button type="button" class="bit-remove-btn" data-action="remove-sub-bit" aria-label="Remove ${safeAttrText}">×</button>
     </li>
@@ -1170,7 +1226,7 @@ function looseBitMarkup(bit, scope) {
     <li data-sortable-item data-bit="${safeAttrText}"${scopeAttr}>
       <label>
         <input type="checkbox" class="bit-checkbox"${checkedAttr}>
-        <span>${safeText}</span>
+        <span data-copyable-bit="true">${safeText}</span>
       </label>
       <button type="button" class="bit-remove-btn" data-action="remove-loose-bit" aria-label="Remove ${safeAttrText}">×</button>
     </li>

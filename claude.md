@@ -1,56 +1,136 @@
-# SolidCAM Cheat Sheet – Claude Agent Brief
+# SolidCAM Cheat Sheet – Project Instructions
 
-Thanks for stepping in! This note gives Claude-based agents the essentials needed to continue work on the SolidCAM Packages & Maintenance Cheat Sheet without re-discovering the project from scratch.
+## CRITICAL: Archon Integration & Workflow
 
-## Quick Orientation
-- **HTML entry:** `index.html` wires up the stylesheet at `assets/css/main.css` and the application script at `assets/js/app.js`.
-- **JS bootstrap:** `assets/js/app.js` imports `renderApp` from `assets/js/dom.js` and mounts the entire UI into `#app`.
-- **Default data:** Canonical package definitions, sidebar items, and header links live in `assets/js/data.js`. Treat these values as the reset state.
-- **Persistence helper:** `assets/js/persistence.js` exposes `saveState`, `loadState`, and `clearState`, wrapping `localStorage` under the key `solidcam-cheatsheet-state`.
+This project uses **Archon MCP server** for knowledge management, task tracking, and project organization. **ALWAYS start with Archon MCP server task management.**
 
-## Core Behaviors You Must Preserve
-1. **Header and hero layout**
-   - Left-aligned SolidCAM logo (20% larger than original asset).
-   - Centered title “SolidCAM Packages & Maintenance Cheat Sheet” with a row of support links directly underneath.
-   - No additional padding—layout is tuned for a single 1080p viewport.
+### Core Workflow: Task-Driven Development
 
-2. **Main package table**
-   - Top controls: add/remove mode toggles on the left, edit/reset controls on the right.
-   - `Edit Order` toggles drag-and-drop via `assets/js/drag-and-drop.js`. `Reset Order` clears storage and reloads defaults; `Reset Checks` unchecks boxes without altering bit lists.
-   - Add mode reveals row-level `+` buttons to append loose bits; remove mode exposes `×` buttons on loose bits, sub-bits, and master groups.
+**MANDATORY task cycle before coding:**
 
-3. **Drag-and-drop system**
-   - Implemented through a custom helper emitting `sortable:drop` events (`detail` contains `{ item, from, to }`).
-   - All package bit buckets share scope `package-bits`. Loose bits and grouped sub-bits can move between one another and across packages.
-   - Empty master groups are automatically removed. Dragging is active only in edit mode; SCSS uses dashed borders and gold accents to show drop targets.
-   - Sidebar lists (`.panel`) also rely on the same drag helpers for reordering.
+1. **Get Task** → `find_tasks(task_id="...")` or `find_tasks(filter_by="status", filter_value="todo")`
+2. **Start Work** → `manage_task("update", task_id="...", status="doing")`
+3. **Research** → Use knowledge base (see RAG workflow below)
+4. **Implement** → Write code based on research
+5. **Review** → `manage_task("update", task_id="...", status="review")`
+6. **Next Task** → `find_tasks(filter_by="status", filter_value="todo")`
 
-4. **Sidebar cards**
-   - Three cards (“Standalone Modules”, “Maintenance SKUs”, “SolidWorks Maintenance”) each have `+`/`−` buttons.
-   - Add prompts collect text and append new pills. Delete mode exposes `×` icons beside each pill.
-   - Layout uses a two-column pill grid with consistent padding; keep the density tight.
+**NEVER skip task updates. NEVER code without checking current tasks first.**
 
-5. **State rules**
-   - Any structure change (add/remove/drag) must end with `persistState`.
-   - `collectState` and `applyState` in `assets/js/dom.js` manage serialization and hydration. Update both when adding new state fields.
-   - Always prefer the helpers in `persistence.js` rather than direct storage access.
+### RAG Workflow (Research Before Implementation)
 
-## Styling Guidance
-- Theme: dark gradient backgrounds with SolidCAM red/gold highlights. Do **not** alter the palette without approval.
-- Spacing: deliberately compact—tweak with care to avoid breaking the 1080p single-screen fit.
-- Drag affordances: edit mode adds dashed borders (`body.edit-mode`) and gold outlines to drop targets.
-- Stick to ASCII unless you have a compelling reason; existing assets are ASCII-friendly.
+**Searching Specific Documentation:**
+```javascript
+// 1. Get sources
+rag_get_available_sources() // Returns list with id, title, url
 
-## Practical Notes
-- **No build tooling:** The project runs directly in the browser. Serve statically or via `file://`.
-- **Testing:** Manual testing is expected—toggle modes, add/remove bits, reorder items, refresh to verify persistence. Document any manual steps you follow.
-- **Resets:** `clearState()` (or the UI’s Reset) returns you to the seed dataset defined in `data.js`.
-- **Copy handling:** `assets/js/copy.js` attaches click-to-copy behavior to `<code>` elements when not in edit mode. Ensure new `<code>` elements register via `registerCopyHandlers`.
-- **Drag scope changes:** Extend the existing logic in `assets/js/drag-and-drop.js` rather than replacing it—both the package table and sidebar cards rely on the same behavior.
+// 2. Find source ID (match to documentation, e.g., "Supabase docs" → "src_abc123")
 
-## Workflow Reminders
-- The repo may already contain user edits; never revert them unless explicitly told to.
-- Use the CLI’s `apply_patch` for modifications and avoid destructive git operations.
-- When reporting back, reference file paths and line numbers so the user can jump straight to relevant code.
+// 3. Search
+rag_search_knowledge_base(query="vector functions", source_id="src_abc123")
+```
 
-Armed with this brief, Claude agents should be able to dive in, maintain consistency, and ship enhancements quickly. Happy building! 🚀
+**General Research:**
+```javascript
+// Search knowledge base (2-5 keywords only!)
+rag_search_knowledge_base(query="authentication JWT", match_count=5)
+
+// Find code examples
+rag_search_code_examples(query="React hooks", match_count=3)
+```
+
+### Tool Reference
+
+**Projects:**
+- `find_projects(query="...")` - Search projects
+- `find_projects(project_id="...")` - Get specific project
+- `manage_project("create"/"update"/"delete", ...)` - Manage projects
+
+**Tasks:**
+- `find_tasks(query="...")` - Search tasks by keyword
+- `find_tasks(task_id="...")` - Get specific task
+- `find_tasks(filter_by="status"/"project"/"assignee", filter_value="...")` - Filter tasks
+- `manage_task("create"/"update"/"delete", ...)` - Manage tasks
+
+**Knowledge Base:**
+- `rag_get_available_sources()` - List all sources
+- `rag_search_knowledge_base(query="...", source_id="...")` - Search docs
+- `rag_search_code_examples(query="...", source_id="...")` - Find code
+
+**Important Notes:**
+- Task status flow: `todo` → `doing` → `review` → `done`
+- Keep queries SHORT (2-5 keywords) for better search results
+- Higher task_order = higher priority (0-100)
+- Tasks should be 30 min - 4 hours of work
+
+---
+
+## Architecture
+
+**Entry Point:** `index.html` → `assets/css/main.css` + `assets/js/app.js`
+
+**Bootstrap:** `app.js` initializes:
+- `dom.js` - Main UI rendering (`renderApp`)
+- `calculator.js` - Calculator logic
+- `email-templates.js` - Template management
+- `chatbot/chatbot.js` - AI chatbot system
+
+**State Management:**
+- `data.js` - Default seed data (packages, sidebar items, header links)
+- `persistence.js` - localStorage wrapper (`saveState`, `loadState`, `clearState`) using key `solidcam-cheatsheet-state`
+- `collectState` / `applyState` in `dom.js` - Serialization/hydration
+
+**Core Modules:**
+- `drag-and-drop.js` - Sortable system (emits `sortable:drop` events)
+- `copy.js` - Click-to-copy for `<code>` elements
+- `chatbot/` - Multi-file chatbot: UI, API, context, RAG, storage
+
+## Core Behaviors
+
+**Package Table:**
+- Add/remove mode toggles (left), edit/reset controls (right)
+- `Edit Order` enables drag-and-drop; `Reset Order` clears storage; `Reset Checks` unchecks boxes
+- Add mode: row-level `+` buttons append bits
+- Remove mode: `×` buttons on bits and master groups
+
+**Drag & Drop:**
+- Scope: `package-bits` - all containers accept items
+- Events: `sortable:drop` with `{ item, from, to }`
+- Empty master groups auto-remove
+- Active only in edit mode (dashed borders, gold accents)
+
+**Sidebar Cards:**
+- Three panels: Standalone Modules, Maintenance SKUs, SolidWorks Maintenance
+- Two-column pill grid with `+`/`−` controls
+- Delete mode shows inline `×` buttons
+
+**Persistence:**
+- ALL structural changes call `persistState`
+- Update both `collectState` and `applyState` when adding state fields
+- Always use `persistence.js` helpers, never direct localStorage
+
+**Chatbot System:**
+- RAG-enabled AI assistant with context awareness
+- Manages conversations, prompts, and API settings via localStorage
+- Multi-file architecture: UI, API manager, context processor, RAG engine, storage
+
+## Design Constraints
+
+**Styling:**
+- Dark gradient backgrounds with SolidCAM red/gold highlights (do not alter palette)
+- Compact spacing for single 1080p viewport fit
+- Edit mode: dashed borders (`body.edit-mode`) and gold outlines on drop targets
+- ASCII-only unless explicitly required
+
+**Technical:**
+- No build tooling - runs directly in browser (`file://` or static server)
+- Manual testing expected - document test steps
+- Framework-free vanilla JS
+
+## Key Rules
+
+1. Never revert user edits unless explicitly requested
+2. Reference file paths and line numbers in responses
+3. Extend `drag-and-drop.js` logic, don't replace it
+4. Register new `<code>` elements via `registerCopyHandlers` in `copy.js`
+5. Use `clearState()` or UI Reset to restore seed data from `data.js`
