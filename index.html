@@ -8,7 +8,9 @@
   <meta http-equiv="Expires" content="0">
   <title>Packages & Maintenance Cheat Sheet</title>
     <link rel="icon" type="image/png" href="assets/img/profile-icon.png">
+  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/main.css?v=20250110.3">
+  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>
 </head>
 <body>
   <div id="app"></div>
@@ -53,19 +55,18 @@
                   </label>
                 </div>
                 <div class="email-template-form__field email-template-form__field--body">
-                  <label>
-                    <div class="email-template-label-row">
-                      <span>Body</span>
-                      <button class="email-template-btn email-template-btn--ghost email-template-btn--xs email-template-btn--icon" data-action="copy-body-inline" type="button" aria-label="Copy body" title="Copy body">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg>
-                      </button>
-                    </div>
-                    <textarea data-field="body" rows="12" placeholder="Write the email body here..." required></textarea>
-                  </label>
+                  <div class="email-template-label-row">
+                    <label for="email-body-editor">Body</label>
+                    <button class="email-template-btn email-template-btn--ghost email-template-btn--xs email-template-btn--icon" data-action="copy-body-inline" type="button" aria-label="Copy body" title="Copy body">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg>
+                    </button>
+                  </div>
+                  <div id="email-body-editor"></div>
+                  <textarea data-field="body" hidden aria-hidden="true"></textarea>
                 </div>
                 <div class="email-template-form__footer">
                   <div class="email-template-toast email-template-toast--inset" data-template-toast hidden></div>
-                  <button class="email-template-btn email-template-btn--primary" data-action="launch-outlook" type="button" disabled>Launch in Outlook</button>
+                  <button class="email-template-btn email-template-btn--primary" data-action="launch-outlook" type="button" disabled>Send to Outlook</button>
                 </div>
               </form>
               <p class="email-template-preview__warning" data-preview-warning hidden></p>

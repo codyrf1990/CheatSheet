@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'emailTemplates.v1';
 const LAST_SELECTED_KEY = 'emailTemplates.lastSelectedId';
-const VERSION = 1;
+const VERSION = 2;
 const MAILTO_LIMIT = 1900;
 
 const DEFAULT_TEMPLATES = [
@@ -91,6 +91,9 @@ export function initializeEmailTemplates() {
     newTemplateBtn: card.querySelector('[data-action="new-template"]'),
   };
 
+  const editorContainer = card.querySelector('#email-body-editor');
+  let quillEditor = null;
+
   const state = {
     templates: loadTemplates(),
     searchTerm: '',
@@ -98,6 +101,45 @@ export function initializeEmailTemplates() {
     selectedId: loadLastSelectedId(),
     formDirty: false,
   };
+
+  if (editorContainer && window.Quill) {
+    // Register custom font sizes
+    const Size = Quill.import('formats/size');
+    Size.whitelist = ['10px', '12px', '14px', '16px', '18px', '20px', '24px', '28px', '36px'];
+    Quill.register(Size, true);
+
+    // Register custom fonts
+    const Font = Quill.import('formats/font');
+    Font.whitelist = ['arial', 'times-new-roman', 'courier-new', 'georgia', 'verdana', 'trebuchet', 'comic-sans', 'impact', 'calibri', 'tahoma'];
+    Quill.register(Font, true);
+
+    quillEditor = new Quill(editorContainer, {
+      theme: 'snow',
+      placeholder: 'Format your email here... Bold, colors, lists, etc.',
+      modules: {
+        toolbar: [
+          [{ font: Font.whitelist }, { size: Size.whitelist }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ color: [] }, { background: [] }],
+          [{ script: 'sub' }, { script: 'super' }],
+          [{ header: [1, 2, 3, false] }],
+          [{ list: 'ordered' }, { list: 'bullet' }, { indent: '-1' }, { indent: '+1' }],
+          [{ align: [] }],
+          ['link'],
+          ['clean'],
+        ],
+      },
+    });
+
+    quillEditor.on('text-change', () => {
+      syncBodyFieldFromEditor();
+      state.formDirty = true;
+      updateLaunchEnabled();
+      updateComposeMeta();
+    });
+  } else if (editorContainer) {
+    console.warn('Quill editor failed to initialize. Email body editing will fall back to raw HTML.');
+  }
 
   ensureTemplateOrder(state.templates);
   if (!state.selectedId || !state.templates.some(t => t.id === state.selectedId)) {
@@ -192,21 +234,55 @@ export function initializeEmailTemplates() {
       .then(() => showToast('Subject copied to clipboard!', 'success'))
       .catch(() => showToast('Failed to copy subject. Try selecting and copying manually.', 'error'));
   });
-  card.querySelector('[data-action="copy-body-inline"]')?.addEventListener('click', () => {
-    const values = currentFormValues();
-    copyToClipboard(values.body)
-      .then(() => showToast('Body copied to clipboard!', 'success'))
-      .catch(() => showToast('Failed to copy body. Try selecting and copying manually.', 'error'));
+  card.querySelector('[data-action="copy-body-inline"]')?.addEventListener('click', async () => {
+    try {
+      syncBodyFieldFromEditor();
+      const result = await copyRichContent();
+      if (result.success) {
+        const message = result.method === 'modern'
+          ? 'Email body copied with formatting. Paste into Outlook to retain styling.'
+          : 'Email body copied as plain text. Formatting will restore after paste.';
+        showToast(message, 'success');
+      } else {
+        showToast('Failed to copy body. Try selecting and copying manually.', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to copy body. Try selecting and copying manually.', 'error');
+    }
   });
 
-  refs.launchBtn?.addEventListener('click', () => {
-    const { subject, body } = currentFormValues();
-    const mailto = buildMailtoUrl(subject, body);
-    if (mailto.length > MAILTO_LIMIT) {
-      showToast('Email content is too long for Outlook\'s mailto launch. Copy and paste instead.', 'warning');
+  refs.launchBtn?.addEventListener('click', async () => {
+    syncBodyFieldFromEditor();
+    const { subject } = currentFormValues();
+    const plainBody = getEditorPlainText();
+    const trimmedBody = plainBody.trim();
+
+    if (!subject || !trimmedBody) {
+      showToast('Add a subject and email body before sending to Outlook.', 'error');
       return;
     }
-    window.location.href = mailto;
+
+    const reminderBody = '[Paste formatted content here - already copied to clipboard]';
+    const mailto = buildMailtoUrl(subject, reminderBody);
+
+    try {
+      const result = await copyRichContent();
+      if (!result.success) {
+        showToast('Unable to copy formatted content. Outlook launch cancelled.', 'error');
+        return;
+      }
+
+      const message = result.method === 'modern'
+        ? 'Formatted email copied. Outlook will open - paste with Ctrl+V (Cmd+V on Mac).'
+        : 'Plain-text fallback copied. Paste in Outlook to restore formatting.';
+      showToast(message, 'success');
+
+      setTimeout(() => {
+        window.location.href = mailto;
+      }, 800);
+    } catch (error) {
+      showToast('Unable to copy formatted content. Outlook launch cancelled.', 'error');
+    }
   });
 
   // tag filters removed
@@ -241,6 +317,68 @@ export function initializeEmailTemplates() {
   }
 
   // Helpers (inside init)
+  function getEditorPlainText() {
+    if (quillEditor) {
+      return quillEditor.getText();
+    }
+    return refs.fields.body?.value || '';
+  }
+
+  function getEditorHtml() {
+    if (quillEditor) {
+      const plain = quillEditor.getText().trim();
+      if (!plain) {
+        return '';
+      }
+      return quillEditor.getSemanticHTML();
+    }
+    return refs.fields.body?.value || '';
+  }
+
+  function syncBodyFieldFromEditor() {
+    if (!refs.fields.body) return;
+    refs.fields.body.value = getEditorHtml();
+  }
+
+  async function copyRichContent() {
+    if (!quillEditor) {
+      return { success: false, error: new Error('Editor not initialized') };
+    }
+
+    const html = getEditorHtml();
+    const plainText = getEditorPlainText();
+
+    if (!plainText.trim()) {
+      return { success: false, error: new Error('Nothing to copy') };
+    }
+
+    const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
+    const ClipboardItemCtor = (typeof window !== 'undefined' && typeof window.ClipboardItem === 'function')
+      ? window.ClipboardItem
+      : undefined;
+
+    if (clipboard && clipboard.write && ClipboardItemCtor) {
+      try {
+        await clipboard.write([
+          new ClipboardItemCtor({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([plainText], { type: 'text/plain' }),
+          }),
+        ]);
+        return { success: true, method: 'modern' };
+      } catch (err) {
+        console.warn('Modern clipboard failed, falling back to legacy:', err);
+      }
+    }
+
+    try {
+      await copyToClipboard(plainText);
+      return { success: true, method: 'legacy' };
+    } catch (err) {
+      return { success: false, error: err };
+    }
+  }
+
   function renderTemplateList() {
     if (!refs.templateList) {
       return;
@@ -351,14 +489,16 @@ export function initializeEmailTemplates() {
 
   function updateLaunchEnabled() {
     if (!refs.launchBtn) return;
-    const { subject, body } = currentFormValues();
-    const has = Boolean(subject && body);
+    const subject = refs.fields.subject?.value?.trim() || '';
+    const bodyLength = getEditorPlainText().trim().length;
+    const has = Boolean(subject && bodyLength);
     refs.launchBtn.disabled = !has;
     if (refs.previewWarning) refs.previewWarning.hidden = true;
   }
 
   function currentFormId() { return refs.fields.id?.value || null; }
   function currentFormValues() {
+    syncBodyFieldFromEditor();
     return {
       id: refs.fields.id?.value || null,
       name: refs.fields.name?.value?.trim() || '',
@@ -372,7 +512,35 @@ export function initializeEmailTemplates() {
     refs.fields.id.value = t?.id ?? '';
     refs.fields.name.value = t?.name ?? '';
     refs.fields.subject.value = t?.subject ?? '';
-    refs.fields.body.value = t?.body ?? '';
+    if (quillEditor) {
+      const body = t?.body ?? '';
+      if (!body) {
+        quillEditor.setText('', 'silent');
+      } else if (!body.includes('<')) {
+        const normalized = body.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const DeltaCtor = (typeof window !== 'undefined' && window.Quill && typeof window.Quill.import === 'function')
+          ? window.Quill.import('delta')
+          : null;
+        if (DeltaCtor) {
+          const lines = normalized.split('\n');
+          const delta = lines.reduce((acc, line) => {
+            if (line) {
+              acc.insert(line);
+            }
+            acc.insert('\n');
+            return acc;
+          }, new DeltaCtor());
+          quillEditor.setContents(delta, 'silent');
+        } else {
+          quillEditor.setText(normalized, 'silent');
+        }
+      } else {
+        quillEditor.clipboard.dangerouslyPasteHTML(body, 'silent');
+      }
+      syncBodyFieldFromEditor();
+    } else if (refs.fields.body) {
+      refs.fields.body.value = t?.body ?? '';
+    }
     // no tags field
     state.formDirty = false;
     state.selectedId = t?.id ?? null;
@@ -384,7 +552,8 @@ export function initializeEmailTemplates() {
 
   function persistFromForm() {
     const { id, name, subject, body } = currentFormValues();
-    if (!name || !subject || !body) {
+    const hasBody = getEditorPlainText().trim().length > 0;
+    if (!name || !subject || !hasBody) {
       showToast('Name, subject, and body are required.', 'error');
       return;
     }
@@ -393,7 +562,7 @@ export function initializeEmailTemplates() {
       if (!template) return;
       template.name = name;
       template.subject = subject;
-      template.body = normalizeLineBreaks(body.trim());
+      template.body = body;
       template.tags = template.tags || [];
       template.updatedAt = Date.now();
       saveTemplates(state.templates);
@@ -405,7 +574,7 @@ export function initializeEmailTemplates() {
         id: generateTemplateId(name, state.templates),
         name,
         subject,
-        body: normalizeLineBreaks(body.trim()),
+        body,
         tags: [],
         createdAt: Date.now(),
         updatedAt: Date.now(),
