@@ -705,6 +705,15 @@ td.maint code.copied,
   box-shadow: 0 0 16px rgba(212, 175, 55, 0.5);
 }
 
+/* Visual feedback for double-click copied bit text */
+.bits li label > span.bit-copied,
+.sub-bits li label > span.bit-copied,
+.master-label > span.bit-copied {
+  animation: copyPulse 0.4s ease;
+  color: var(--solidcam-gold);
+  text-shadow: 0 0 8px rgba(212, 175, 55, 0.4);
+}
+
 td.pkg span {
   display: block;
   margin-top: 0.32rem;

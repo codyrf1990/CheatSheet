@@ -1,63 +1,49 @@
-# SolidCAM Cheat Sheet – Agent Guide
+# SolidCAM Cheat Sheet – Codex Agent Guide
 
-Welcome aboard! This document gives future agents the context they need to pick up work on the SolidCAM Packages & Maintenance Cheat Sheet without retracing steps.
+Welcome! Use this quick-start to get productive in the Codex CLI on the SolidCAM cheat sheet.
+
+## Archon Workflow (Always First)
+1. `find_tasks(filter_by="status", filter_value="todo")`
+2. `manage_task("update", task_id, status="doing")` before touching code
+3. Use RAG tools for research (short 2–5 word queries)
+4. Implement and test
+5. `manage_task("update", task_id, status="review")`
+6. Move on to the next task
+
+Keep task status accurate; no coding without an active Archon task.
+
+## CLI Environment Expectations
+- Shell commands run via `shell` with `["bash","-lc", ...]` and explicit `workdir`.
+- Prefer `rg` for search, `sed`/`awk` for quick reads, and `apply_patch` for patches.
+- Leverage the planning tool for multi-step work (skip only for trivial edits).
+- Never request sandbox escalation unless essential; include justification when you do.
+- Obey non-destructive policy: avoid `git reset --hard`, `git checkout --`, or mass deletes.
 
 ## Project Snapshot
-- **Entry point:** `index.html` loads `assets/css/main.css` and `assets/js/app.js`.
-- **App bootstrap:** `assets/js/app.js` mounts the UI by calling `renderApp` from `assets/js/dom.js`.
-- **Data sources:** Default packages, sidebar panels, and support links live in `assets/js/data.js`. Treat these as the canonical seed values when implementing resets or migrations.
-- **State persistence:** `assets/js/persistence.js` manages a single `localStorage` key, `solidcam-cheatsheet-state`, storing panel items, package bits, and checkbox states. Use `saveState`, `loadState`, and `clearState` helpers instead of touching storage directly.
+- Entry pipeline: `index.html` → `assets/css/main.css`, `assets/js/app.js`.
+- App bootstrap initializes `dom.js`, `calculator.js`, `email-templates.js`, and the chatbot stack.
+- Canonical seed data: `assets/js/data.js`; persistence wrapper: `assets/js/persistence.js` with key `solidcam-cheatsheet-state`.
+- State collection/hydration lives in `collectState` / `applyState` within `dom.js`.
+- For full architecture and feature contracts, **see `claude.md`**.
 
-## Key Features & Contracts
-1. **Header layout**
-   - Logo anchored left (20% larger than original).
-   - Title and support buttons centered in a two-row block.
-   - Spacing tuned for a dense, single-screen 1080p presentation—keep changes tight.
+## Daily Workflow Tips
+- Begin each session by clearing stale localStorage with the UI reset or `clearState()` when needed.
+- When registering new `<code>` snippets, call `registerCopyHandlers` in `assets/js/copy.js`.
+- Extend existing helpers (`drag-and-drop.js`, persistence utilities) instead of rewriting them.
+- Stick to ASCII for new content; match existing style tokens (SolidCAM red/gold, dense layout).
+- Document manual QA you run—typical passes cover add/remove toggles, drag/drop, persistence, calculator math, and chatbot flows.
 
-2. **Package table card**
-   - Dual-mode controls (`+` / `−`) toggle add/remove modes for package bits.
-   - `Edit Order`, `Reset Order`, `Reset Checks` form the shared control cluster on the right.
-   - `Edit Order` enables drag-and-drop (using `assets/js/drag-and-drop.js`); `Reset Order` should restore seed data by clearing storage; `Reset Checks` only affects checkbox states.
-   - In add mode, each row exposes a floating `+` button to append a new bit to the package’s loose list.
-   - In remove mode, `×` buttons appear for loose bits, sub-bits, and entire master groups.
+## Manual QA Checklist
+- Toggle add/remove modes on packages and sidebar pills; confirm persistence after reload.
+- Drag package bits between groups and ensure empty wrappers collapse.
+- Verify calculator: chained operations, `%` operator, quick percentage buttons.
+- Chatbot: send test messages, ensure history persists, and storage keys stay under quota.
+- Test copy-to-clipboard on code blocks outside edit mode.
+- Resize viewport to confirm compact layout remains intact.
 
-3. **Drag-and-drop rules**
-   - Implemented via custom logic in `assets/js/drag-and-drop.js`, firing a `sortable:drop` event with `{ item, from, to }`.
-   - All package bit containers share scope `package-bits`. Loose bits and master group sub-lists accept items from one another, allowing reshuffling within a package or between packages.
-   - Master groups retain their wrapper when populated; empty groups are removed automatically.
-   - Sidebars (`.panel`s) also use the sortable system for reordering in edit mode.
+## Reference & Support
+- Architecture deep dive, RAG snippets, and workflow context live in `claude.md`.
+- Security practices, QA plans, and other docs reside in `/docs` as they are authored.
+- When unsure about intent, stop and ask via the task thread—never guess on structural changes.
 
-4. **Sidebar cards**
-   - Three cards (`Standalone Modules`, `Maintenance SKUs`, `SolidWorks Maintenance`) have independent add/remove toggles.
-   - Pills are laid out in a two-column grid; add prompts collect text and append pills.
-   - Delete mode surfaces inline `×` buttons. Exit the mode to hide them.
-
-5. **Persistence expectations**
-   - Every structural change (bit added/removed, drag reorder, sidebar edits, checkbox changes) must pass through `persistState`.
-   - `applyState` reconstructs UI elements on load. If you add new state properties, update `collectState` / `applyState` pair coherently.
-
-6. **Calculator contract**
-   - Grid: 4 columns × 6 rows inside `.calculator-buttons`.
-   - Layout: `=` sits under `+` and spans two rows (rows 5–6, column 4). The quick % buttons (5–30%) occupy the bottom row under `+/−`, `0`, and `.`.
-   - Behavior: After pressing `=`, typing a number starts a new calculation; choosing an operator continues from the result. The `%` operator and quick % buttons compute percentage of the current entry, or of the first operand if an operator was chosen (e.g., `100 +` then `10%` -> inserts `10`).
-   - Code: markup in `assets/js/dom.js` (calculator panel), logic in `assets/js/calculator.js`, styles in `assets/css/main.css`.
-
-## Styling Notes
-- Main theme uses dark gradients with SolidCAM red and gold accents. Do **not** shift the palette without explicit approval.
-- Layout tuning focuses on vertical compactness; spacing is already minimized, so adjust cautiously.
-- Drag targets highlight via dashed borders and gold accents when `Edit Order` is active.
-- Keep additions ASCII-only unless there is an explicit need for Unicode (current assets do not require it).
-
-## Development Tips
-- **No build step:** Everything runs directly in the browser. Use a static server or `file://` as needed.
-- **Testing:** Manual verification is the norm (toggle modes, add/remove bits, reorder elements, refresh to confirm persistence). Automated tests do not exist; document any manual checklist you follow.
-- **LocalStorage resets:** Use `clearState()` or `Reset Order` from the UI when you need a fresh baseline.
-- **Drag-and-drop extensions:** Extend scope logic in `drag-and-drop.js` rather than replacing the helper—other parts of the UI depend on the current contract.
-- **Copy-to-clipboard:** `assets/js/copy.js` registers click handlers on `<code>` blocks while not in edit mode. If you introduce new coded elements, ensure they pass through `registerCopyHandlers`.
-
-## Workflow Reminders
-- The workspace may start dirty—never revert user changes unless explicitly requested.
-- `apply_patch` is the preferred tool for edits; avoid destructive git commands.
-- Keep responses concise and reference paths + line numbers when summarizing updates.
-
-With this overview, you should be able to dive straight into feature work or maintenance. Happy coding! 🚀
+Happy shipping! Keep updates tight, cite file paths (`path/to/file:line`), and hand tasks back in Archon when ready.
