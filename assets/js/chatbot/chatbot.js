@@ -2,6 +2,7 @@ import { createChatbotUI } from './chatbot-ui.js';
 import { ChatbotApiManager, getProviderCatalog } from './chatbot-api.js';
 import { ChatbotContextProcessor } from './chatbot-context.js';
 import { ChatbotRagEngine } from './chatbot-rag.js';
+import { messageArchive } from '../message-archive.js';
 import {
   loadPrompts,
   savePrompts,
@@ -54,6 +55,9 @@ export function initializeChatbot() {
   const apiManager = new ChatbotApiManager();
   const contextProcessor = new ChatbotContextProcessor();
   const ragEngine = new ChatbotRagEngine();
+  messageArchive.init().catch(error => {
+    console.warn('[Chatbot] Message archive initialization failed.', error);
+  });
 
   const state = {
     prompts: ensurePrompts(loadPrompts()),
@@ -134,7 +138,7 @@ export function initializeChatbot() {
     ragEngine.ingest(state.contextSnapshot);
   }
 
-  function handleSend(text) {
+  async function handleSend(text) {
     if (state.sending) {
       ui.showBanner('Please wait for the current response to finish.', 'warning');
       return;
@@ -169,7 +173,16 @@ export function initializeChatbot() {
       createdAt: Date.now(),
       references: []
     };
-    conversation.messages.push(userMessage);
+    try {
+      conversation.messages = await messageArchive.addMessage(
+        conversation.id,
+        userMessage,
+        conversation.messages
+      );
+    } catch (error) {
+      console.warn('[Chatbot] Failed to archive user message. Falling back to in-memory only.', error);
+      conversation.messages.push(userMessage);
+    }
     conversation.updatedAt = Date.now();
 
     ui.appendMessage(userMessage);
@@ -190,10 +203,10 @@ export function initializeChatbot() {
       ragResults = ragEngine.search(text);
     } else {
       context = null;
-      ragResults = buildConversationReferences(conversation.messages);
+      ragResults = await buildConversationReferences(conversation.id, conversation.messages);
     }
 
-    state.lastRagResults = ragResults;
+    state.lastRagResults = Array.isArray(ragResults) ? ragResults : [];
 
     const assistantMessage = {
       id: generateMessageId('assistant'),
@@ -202,7 +215,16 @@ export function initializeChatbot() {
       createdAt: Date.now(),
       references: []
     };
-    conversation.messages.push(assistantMessage);
+    try {
+      conversation.messages = await messageArchive.addMessage(
+        conversation.id,
+        assistantMessage,
+        conversation.messages
+      );
+    } catch (error) {
+      console.warn('[Chatbot] Failed to archive assistant message. Falling back to in-memory only.', error);
+      conversation.messages.push(assistantMessage);
+    }
     ui.appendMessage(assistantMessage);
 
     state.sending = true;
@@ -981,9 +1003,18 @@ function buildReferences(results = []) {
   }));
 }
 
-function buildConversationReferences(messages = []) {
-  if (!Array.isArray(messages) || !messages.length) return [];
-  const trimmed = messages.filter(msg => msg.role !== 'system' && msg.content);
+async function buildConversationReferences(conversationId, messages = []) {
+  const baseMessages = Array.isArray(messages) ? messages : [];
+  let combined = baseMessages;
+  if (conversationId) {
+    try {
+      combined = await messageArchive.getAllMessages(conversationId, baseMessages);
+    } catch (error) {
+      console.warn('[Chatbot] Failed to combine archived messages for references.', error);
+    }
+  }
+  const trimmed = combined.filter(msg => msg.role !== 'system' && msg.content);
+  if (!trimmed.length) return [];
   const recent = trimmed.slice(-6);
   return recent
     .map((message, index) => ({

@@ -1,7 +1,9 @@
 import { headerLinks, packages, panels } from './data.js';
 import { registerCopyHandlers, bindCopyHandler } from './copy.js';
 import { enableDrag, disableDrag } from './drag-and-drop.js';
-import { loadState, saveState, clearState } from './persistence.js';
+import { loadState, clearState } from './persistence.js';
+import { stateQueue } from './state-queue.js';
+import { logger } from './debug-logger.js';
 
 let editMode = false;
 let packageAddMode = false;
@@ -1083,24 +1085,41 @@ function collectState(root) {
   return { panels: panelState, packages: packageState };
 }
 
-const persistState = (() => {
-  let persistTimer = null;
-  let latestRoot = null;
+const persistState = root => {
+  if (!root) return;
+  try {
+    const snapshot = collectState(root);
+    const changeType = determineChangeType(root);
+    const metadata = {
+      rootId: root.id || 'root',
+      elementCount: root.querySelectorAll('*').length
+    };
+    logger.log('dom', 'Persist request queued', {
+      changeType,
+      elementCount: metadata.elementCount
+    });
+    stateQueue
+      .enqueue(snapshot, changeType, metadata)
+      .catch(error => console.error('[DOM Persistence Error]', error));
+  } catch (error) {
+    console.error('[DOM Persistence Error]', error);
+  }
+};
 
-  const flush = () => {
-    if (!latestRoot) return;
-    saveState(collectState(latestRoot));
-    persistTimer = null;
-  };
+function determineChangeType(root) {
+  if (!root || typeof root.querySelector !== 'function') {
+    return 'ui_change';
+  }
+  try {
+    if (root.querySelector('[data-changing="panels"]')) return 'panel_change';
+    if (root.querySelector('[data-changing="packages"]')) return 'package_change';
+  } catch (error) {
+    console.warn('[DOM Persistence] Unable to determine change type', error);
+  }
+  return 'ui_change';
+}
 
-  return root => {
-    latestRoot = root;
-    if (persistTimer) {
-      clearTimeout(persistTimer);
-    }
-    persistTimer = setTimeout(flush, 80);
-  };
-})();
+export { persistState };
 
 function applyState(root, state) {
   if (state.panels) {
