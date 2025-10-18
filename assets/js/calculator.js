@@ -13,6 +13,8 @@ export function initializeCalculator() {
   const displayElement = document.querySelector('.calculator-display');
   if (!calculatorElement || !displayElement) return;
 
+  setupDisplayCopy(displayElement);
+
   calculatorElement.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button) return;
@@ -347,4 +349,96 @@ function handleQuickPercent(percent) {
 
 function updateDisplay(displayElement) {
   displayElement.textContent = state.displayValue;
+}
+
+function setupDisplayCopy(displayElement) {
+  if (!displayElement || displayElement.dataset.copyBound === 'true') return;
+  displayElement.dataset.copyBound = 'true';
+
+  let singleClickTimer = null;
+  const SINGLE_CLICK_DELAY = 275;
+
+  displayElement.addEventListener('click', event => {
+    if (singleClickTimer) {
+      clearTimeout(singleClickTimer);
+      singleClickTimer = null;
+    }
+
+    const position = {
+      x: typeof event?.clientX === 'number' ? event.clientX : undefined,
+      y: typeof event?.clientY === 'number' ? event.clientY : undefined,
+    };
+
+    singleClickTimer = window.setTimeout(() => {
+      singleClickTimer = null;
+      handleDisplayCopy(position, displayElement);
+    }, SINGLE_CLICK_DELAY);
+  });
+
+  displayElement.addEventListener('dblclick', event => {
+    if (singleClickTimer) {
+      clearTimeout(singleClickTimer);
+      singleClickTimer = null;
+    }
+
+    const position = {
+      x: typeof event?.clientX === 'number' ? event.clientX : undefined,
+      y: typeof event?.clientY === 'number' ? event.clientY : undefined,
+    };
+
+    handleDisplayCopyFull(position, displayElement);
+  });
+}
+
+async function handleDisplayCopy(position, displayElement) {
+  if (state.error) return;
+  if (!canUseClipboard()) return;
+
+  const numericValue = Number(state.displayValue);
+  if (!Number.isFinite(numericValue)) return;
+
+  const truncatedValue = Math.trunc(numericValue);
+  let textToCopy;
+
+  if (Object.is(truncatedValue, 0) || truncatedValue === 0) {
+    textToCopy = '-0';
+  } else if (truncatedValue > 0) {
+    textToCopy = (-truncatedValue).toString();
+  } else {
+    textToCopy = truncatedValue.toString();
+  }
+
+  await copyToClipboard(textToCopy, position, displayElement, 'Clipboard copy failed for calculator discount value');
+}
+
+async function handleDisplayCopyFull(position, displayElement) {
+  if (state.error) return;
+  if (!canUseClipboard()) return;
+
+  const textToCopy = state.displayValue;
+  if (!textToCopy) return;
+
+  await copyToClipboard(textToCopy, position, displayElement, 'Clipboard copy failed for calculator full value');
+}
+
+function canUseClipboard() {
+  if (typeof navigator === 'undefined') return false;
+  if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') return false;
+  return true;
+}
+
+async function copyToClipboard(text, position, target, errorMessage) {
+  try {
+    await navigator.clipboard.writeText(text);
+    const x = typeof position?.x === 'number' ? position.x : undefined;
+    const y = typeof position?.y === 'number' ? position.y : undefined;
+
+    window.dispatchEvent(
+      new CustomEvent('copy-hud', {
+        detail: { x, y, target, text },
+      })
+    );
+  } catch (error) {
+    console.error(errorMessage, error);
+  }
 }
