@@ -1086,7 +1086,7 @@ function collectState(root) {
 }
 
 const persistState = root => {
-  if (!root) return;
+  if (!root) return Promise.resolve(false);
   try {
     const snapshot = collectState(root);
     const changeType = determineChangeType(root);
@@ -1098,11 +1098,15 @@ const persistState = root => {
       changeType,
       elementCount: metadata.elementCount
     });
-    stateQueue
+    return stateQueue
       .enqueue(snapshot, changeType, metadata)
-      .catch(error => console.error('[DOM Persistence Error]', error));
+      .catch(error => {
+        console.error('[DOM Persistence Error]', error);
+        throw error;
+      });
   } catch (error) {
     console.error('[DOM Persistence Error]', error);
+    return Promise.reject(error);
   }
 };
 

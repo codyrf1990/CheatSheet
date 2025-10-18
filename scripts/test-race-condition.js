@@ -1,5 +1,6 @@
 import { logger } from '../assets/js/debug-logger.js';
 import { persistState } from '../assets/js/dom.js';
+import { stateQueue } from '../assets/js/state-queue.js';
 
 /**
  * Simulate rapid UI updates that previously caused race conditions.
@@ -29,22 +30,24 @@ export async function testRaceCondition() {
     const tasks = Array.from({ length: iterations }, (_, index) =>
       new Promise(resolve => {
         setTimeout(() => {
-          try {
-            persistState(root);
-            completed += 1;
-            if ((index + 1) % 10 === 0) {
-              console.log(`  ✓ Processed ${index + 1}/${iterations}`);
-            }
-          } catch (error) {
-            errors += 1;
-            logger.error('race-test', 'Iteration failed', { index, error });
-          }
-          resolve();
+          persistState(root)
+            .then(() => {
+              completed += 1;
+              if ((index + 1) % 10 === 0) {
+                console.log(`  ✓ Processed ${index + 1}/${iterations}`);
+              }
+            })
+            .catch(error => {
+              errors += 1;
+              logger.error('race-test', 'Iteration failed', { index, error });
+            })
+            .finally(resolve);
         }, Math.random() * 50);
       })
     );
 
     await Promise.all(tasks);
+    await stateQueue.whenIdle();
 
     const settings = JSON.parse(localStorage.getItem('solidcam.chatbot.settings') || '{}');
     const conversations = JSON.parse(localStorage.getItem('solidcam.chatbot.conversations') || '[]');
@@ -53,10 +56,16 @@ export async function testRaceCondition() {
       settingsValid: typeof settings === 'object' && settings !== null,
       apiKeysObject: typeof settings.apiKeys === 'object',
       conversationsValid: Array.isArray(conversations),
-      conversationCount: Array.isArray(conversations) ? conversations.length : 0
+      conversationCount: Array.isArray(conversations) ? conversations.length : 0,
+      latestStateRecorded: typeof stateQueue.latestState === 'object' && stateQueue.latestState !== null,
     };
 
-    const passed = errors === 0 && integrity.settingsValid && integrity.apiKeysObject && integrity.conversationsValid;
+    const passed =
+      errors === 0 &&
+      integrity.settingsValid &&
+      integrity.apiKeysObject &&
+      integrity.conversationsValid &&
+      integrity.latestStateRecorded;
 
     console.log('\n📊 Race Test Summary:', {
       iterations,
@@ -81,4 +90,3 @@ export async function testRaceCondition() {
 if (typeof window !== 'undefined') {
   window.testRaceCondition = testRaceCondition;
 }
-
