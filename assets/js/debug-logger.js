@@ -16,7 +16,7 @@ class DebugLogger {
   constructor() {
     this.enabledModules = new Set();
     this.timers = new Map();
-    this.showAll = false;
+    this.showAll = true;
   }
 
   log(module, message, data) {
@@ -91,8 +91,8 @@ class DebugLogger {
 
   clear() {
     this.enabledModules.clear();
-    this.showAll = false;
-    console.log('🧹 Debug filters cleared (no modules enabled)');
+    this.showAll = true;
+    console.log('🧹 Debug filters cleared (showing all modules)');
   }
 
   _shouldLog(module) {

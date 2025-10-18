@@ -76,6 +76,7 @@ class MessageArchive {
           remainingActive: activeMessages.length
         });
       } catch (error) {
+        logger.endTimer('message-archive', 'archive-batch');
         logger.warn('message-archive', 'Failed to archive overflow messages.', error);
         // On failure, reinsert the messages at the front so they remain active.
         activeMessages.unshift(...toArchive);
@@ -96,6 +97,27 @@ class MessageArchive {
       const store = tx.objectStore(STORE_NAME);
       const archivedAt = Date.now();
 
+      let settled = false;
+
+      const fail = error => {
+        if (settled) return;
+        settled = true;
+        try {
+          tx.abort();
+        } catch (_) {
+          // ignore abort errors
+        }
+        reject(error);
+      };
+
+      tx.oncomplete = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      tx.onerror = () => fail(tx.error);
+      tx.onabort = () => fail(tx.error || new Error('IndexedDB transaction aborted.'));
+
       messages.forEach((msg, index) => {
         const record = {
           id: msg.id,
@@ -108,13 +130,11 @@ class MessageArchive {
         };
         const request = store.put(record);
         request.onerror = () => {
-          logger.error('message-archive', 'Failed to archive message', request.error);
+          const error = request.error || new Error('Failed to archive message');
+          logger.error('message-archive', 'Failed to archive message', error);
+          fail(error);
         };
       });
-
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted.'));
     });
   }
 

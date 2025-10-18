@@ -42,8 +42,9 @@ export async function testMessageArchive() {
     }
 
     const archivedMessages = await messageArchive.getArchivedMessages(conversationId);
-    const archivingWorked = activeMessages.length <= 500;
     const expectedArchived = Math.max(0, messageCount - activeMessages.length);
+    const archivingWorked =
+      activeMessages.length <= 500 && archivedMessages.length >= expectedArchived;
 
     const summary = {
       totalProcessed: messageCount,

@@ -21,77 +21,96 @@ class StateQueue {
     this.latestState = null;
     this.idbPromise = null;
     this.warnedIdbUnavailable = false;
+    this.currentFlushPromise = null;
+    this.idleResolvers = [];
   }
 
   async enqueue(snapshot, changeType = 'ui_change', metadata = {}) {
-    if (!snapshot || typeof snapshot !== 'object') {
-      logger.warn('state-queue', 'Ignoring invalid snapshot payload.');
-      return;
-    }
+    return new Promise((resolve, reject) => {
+      if (!snapshot || typeof snapshot !== 'object') {
+        logger.warn('state-queue', 'Ignoring invalid snapshot payload.');
+        resolve(false);
+        return;
+      }
 
-    logger.log('state-queue', `Queued change: ${changeType}`, {
-      queueSize: this.pendingChanges.length,
-      version: this.version
+      const queuedAt = Date.now();
+      const entry = {
+        snapshot,
+        type: changeType,
+        metadata: {
+          ...metadata,
+          timestamp: queuedAt,
+          version: this.version++,
+        },
+        resolve,
+        reject,
+      };
+
+      this.pendingChanges.push(entry);
+
+      logger.log('state-queue', `Queued change: ${changeType}`, {
+        queueSize: this.pendingChanges.length,
+        version: entry.metadata.version,
+      });
+
+      this.processQueue();
     });
-
-    const entry = {
-      snapshot,
-      type: changeType,
-      metadata: {
-        ...metadata,
-        timestamp: Date.now(),
-        version: this.version++,
-      },
-    };
-
-    this.pendingChanges.push(entry);
-
-    if (!this.processing) {
-      await this.processQueue();
-    }
   }
 
   async processQueue() {
-    if (this.processing) return;
-    if (!this.pendingChanges.length) return;
+    if (this.processing) return this.currentFlushPromise;
+    if (!this.pendingChanges.length) return Promise.resolve();
 
     this.processing = true;
     logger.startTimer('queue-process');
-    try {
+
+    const flush = (async () => {
       while (this.pendingChanges.length) {
         const batch = this.pendingChanges.splice(0, BATCH_SIZE);
-        logger.log('state-queue', `Processing batch`, {
-          batchSize: Math.min(BATCH_SIZE, this.pendingChanges.length + batch.length)
-        });
         const validEntries = [];
 
-        batch.forEach(change => {
+        for (const change of batch) {
           if (this.validateStateIntegrity(change.snapshot)) {
             validEntries.push(change);
           } else {
             logger.error('state-queue', 'State validation failed. Skipping change.', change);
+            change.resolve(false);
           }
-        });
+        }
 
         if (!validEntries.length) {
           continue;
         }
 
-        await this.atomicWrite(validEntries);
-        this.latestState = validEntries[validEntries.length - 1].snapshot;
-      }
-    } catch (error) {
-      logger.error('state-queue', 'Failed to process queue', error);
-    } finally {
-      this.processing = false;
-      if (this.pendingChanges.length) {
-        // Process any entries added while we were handling the previous batch.
-        this.processQueue().catch(err => {
-          logger.error('state-queue', 'Error while continuing queue processing', err);
+        logger.log('state-queue', 'Processing batch', {
+          batchSize: validEntries.length
         });
+
+        try {
+          await this.atomicWrite(validEntries);
+          this.latestState = validEntries[validEntries.length - 1].snapshot;
+          validEntries.forEach(entry => entry.resolve(true));
+        } catch (error) {
+          logger.error('state-queue', 'Failed to process batch', error);
+          validEntries.forEach(entry => entry.resolve(false));
+        }
       }
-      logger.endTimer('state-queue', 'queue-process');
-    }
+    })()
+      .catch(error => {
+        logger.error('state-queue', 'Failed to process queue', error);
+      })
+      .finally(() => {
+        this.processing = false;
+        this.currentFlushPromise = null;
+        logger.endTimer('state-queue', 'queue-process');
+        this.resolveIdleWaiters();
+        if (this.pendingChanges.length) {
+          this.processQueue();
+        }
+      });
+
+    this.currentFlushPromise = flush;
+    return flush;
   }
 
   async atomicWrite(changes) {
@@ -103,7 +122,11 @@ class StateQueue {
           count: changes.length
         });
       } catch (error) {
-        logger.error('state-queue', 'IndexedDB write failed, falling back to localStorage.', error);
+        if (error?.name === 'QuotaExceededError') {
+          logger.warn('state-queue', 'IndexedDB quota exceeded, falling back to localStorage.', error);
+        } else {
+          logger.error('state-queue', 'IndexedDB write failed, falling back to localStorage.', error);
+        }
         const latest = changes[changes.length - 1];
         saveState(latest.snapshot);
       }
@@ -121,7 +144,29 @@ class StateQueue {
       const store = tx.objectStore(IDB_STORE_NAME);
       const archivedAt = Date.now();
 
-      changes.forEach(change => {
+      let settled = false;
+
+      const fail = error => {
+        if (settled) return;
+        settled = true;
+        try {
+          tx.abort();
+        } catch (_) {
+          // ignore abort errors
+        }
+        reject(error);
+      };
+
+      tx.oncomplete = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+
+      tx.onerror = () => fail(tx.error);
+      tx.onabort = () => fail(tx.error || new Error('IndexedDB transaction aborted'));
+
+      for (const change of changes) {
         const record = {
           version: change.metadata.version,
           snapshot: change.snapshot,
@@ -131,15 +176,14 @@ class StateQueue {
             archivedAt,
           },
         };
-      const request = store.put(record);
-      request.onerror = () => {
-        logger.error('state-queue', 'Failed to store snapshot entry', request.error);
-      };
-    });
 
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+        const request = store.put(record);
+        request.onerror = () => {
+          const error = request.error || new Error('Failed to store snapshot entry');
+          logger.error('state-queue', 'Failed to store snapshot entry', error);
+          fail(error);
+        };
+      }
     });
 
     const latest = changes[changes.length - 1];
@@ -194,6 +238,23 @@ class StateQueue {
       logger.warn('state-queue', 'IndexedDB unavailable. Using localStorage only.', error);
     } else {
       logger.warn('state-queue', 'IndexedDB unavailable. Using localStorage only.');
+    }
+  }
+
+  whenIdle() {
+    if (!this.processing && this.pendingChanges.length === 0 && !this.currentFlushPromise) {
+      return Promise.resolve();
+    }
+    return new Promise(resolve => {
+      this.idleResolvers.push(resolve);
+    });
+  }
+
+  resolveIdleWaiters() {
+    if (this.processing || this.pendingChanges.length) return;
+    while (this.idleResolvers.length) {
+      const resolve = this.idleResolvers.shift();
+      if (resolve) resolve();
     }
   }
 }
