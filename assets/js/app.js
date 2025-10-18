@@ -9,4 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeCalculator();
   initializeEmailTemplates();
   initializeChatbot();
+
+  if (typeof window !== 'undefined') {
+    import('../../scripts/validation-harness.js').catch(() => {
+      // Validation harness is optional; ignore failures (e.g., in production builds)
+    });
+  }
 });

@@ -9,6 +9,18 @@
       "env": {
         "DEFAULT_MINIMUM_TOKENS": ""
       }
+    },
+    "archon": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://localhost:8051/mcp",
+        "--allow-http"
+      ],
+      "alwaysAllow": [
+        "find_tasks",
+        "manage_task"
+      ]
     }
   }
 }
