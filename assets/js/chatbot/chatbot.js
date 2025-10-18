@@ -11,8 +11,6 @@ import {
   saveConversations,
   createConversation,
   generateMessageId,
-  obfuscateKey,
-  revealKey,
   DEFAULT_PROMPTS,
   DEFAULT_SETTINGS
 } from './chatbot-storage.js';
@@ -960,8 +958,8 @@ function getPlainApiKey(settings, providerId) {
   if (!settings || typeof settings !== 'object') {
     return '';
   }
-  const encrypted = settings.apiKeys && typeof settings.apiKeys === 'object' ? settings.apiKeys[providerId] : '';
-  return revealKey(typeof encrypted === 'string' ? encrypted : '');
+  const apiKey = settings.apiKeys && typeof settings.apiKeys === 'object' ? settings.apiKeys[providerId] : '';
+  return typeof apiKey === 'string' ? apiKey : '';
 }
 
 function setEncryptedApiKey(settings, providerId, plainKey) {
@@ -972,7 +970,7 @@ function setEncryptedApiKey(settings, providerId, plainKey) {
     settings.apiKeys = {};
   }
   const trimmed = typeof plainKey === 'string' ? plainKey.trim() : '';
-  settings.apiKeys[providerId] = trimmed ? obfuscateKey(trimmed) : '';
+  settings.apiKeys[providerId] = trimmed;
 }
 
 function buildReferences(results = []) {
