@@ -50,8 +50,6 @@ const DEFAULT_SETTINGS = {
   showDebugPanel: false
 };
 
-const API_KEY_SEED = 'solidcam-assistant';
-
 export function loadPrompts() {
   const stored = readJson(STORAGE_KEYS.prompts, null);
   if (!stored) {
@@ -164,23 +162,6 @@ export function createConversation(options = {}) {
 
 export function generateMessageId(role = 'msg') {
   return generateId(role);
-}
-
-export function obfuscateKey(value) {
-  if (!value) return '';
-  const salted = `${API_KEY_SEED}::${value}`;
-  return base64Encode(salted);
-}
-
-export function revealKey(obfuscated) {
-  if (!obfuscated) return '';
-  try {
-    const decoded = base64Decode(obfuscated);
-    if (!decoded || !decoded.startsWith(`${API_KEY_SEED}::`)) return '';
-    return decoded.slice(API_KEY_SEED.length + 2);
-  } catch (error) {
-    return '';
-  }
 }
 
 export function sanitizeConversation(conversation) {
@@ -328,28 +309,6 @@ function hasStorage() {
 function generateId(prefix) {
   const base = Math.random().toString(36).slice(2, 8);
   return `${prefix}-${Date.now().toString(36)}-${base}`;
-}
-
-function base64Encode(value) {
-  if (!value) return '';
-  if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
-    return window.btoa(value);
-  }
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(value, 'utf8').toString('base64');
-  }
-  throw new Error('No base64 encoder available');
-}
-
-function base64Decode(value) {
-  if (!value) return '';
-  if (typeof window !== 'undefined' && typeof window.atob === 'function') {
-    return window.atob(value);
-  }
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(value, 'base64').toString('utf8');
-  }
-  throw new Error('No base64 decoder available');
 }
 
 function cloneDefaultPrompts() {
