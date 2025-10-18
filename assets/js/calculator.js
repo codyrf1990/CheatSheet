@@ -8,6 +8,12 @@ const state = {
   justEvaluated: false,
 };
 
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 export function initializeCalculator() {
   const calculatorElement = document.querySelector('.calculator');
   const displayElement = document.querySelector('.calculator-display');
@@ -348,7 +354,7 @@ function handleQuickPercent(percent) {
 }
 
 function updateDisplay(displayElement) {
-  displayElement.textContent = state.displayValue;
+  displayElement.textContent = formatCurrencyDisplay(state.displayValue, state.error);
 }
 
 function setupDisplayCopy(displayElement) {
@@ -441,4 +447,16 @@ async function copyToClipboard(text, position, target, errorMessage) {
   } catch (error) {
     console.error(errorMessage, error);
   }
+}
+
+function formatCurrencyDisplay(value, isError) {
+  if (isError) return 'Error';
+  if (value === null || value === undefined) return '$0.00';
+
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return currencyFormatter.format(0);
+  }
+
+  return currencyFormatter.format(numericValue);
 }
