@@ -3,22 +3,23 @@ const MODE_TOGGLE_ACTIVE_CLASS = 'chatbot-mode-toggle__button--active';
 const PROMPT_SAVE_DELAY = 800;
 const ICON_SPECS = {
   conversations: [
-    { el: 'path', attrs: { d: 'M5 5.5h14v8H13l-4 4v-4H5z' } },
-    { el: 'line', attrs: { x1: 7, y1: 9, x2: 17, y2: 9 } },
-    { el: 'line', attrs: { x1: 7, y1: 12, x2: 14.5, y2: 12 } }
+    { el: 'path', attrs: { d: 'M5 4h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-6l-4 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z' } },
+    { el: 'circle', attrs: { cx: 9, cy: 9.5, r: 0.85 } },
+    { el: 'circle', attrs: { cx: 12, cy: 9.5, r: 0.85 } },
+    { el: 'circle', attrs: { cx: 15, cy: 9.5, r: 0.85 } }
   ],
   settings: [
-    { el: 'line', attrs: { x1: 5, y1: 8, x2: 19, y2: 8 } },
-    { el: 'circle', attrs: { cx: 10, cy: 8, r: 1.6 } },
-    { el: 'line', attrs: { x1: 5, y1: 12, x2: 19, y2: 12 } },
-    { el: 'circle', attrs: { cx: 15, cy: 12, r: 1.6 } },
-    { el: 'line', attrs: { x1: 5, y1: 16, x2: 19, y2: 16 } },
-    { el: 'circle', attrs: { cx: 8, cy: 16, r: 1.6 } }
+    { el: 'line', attrs: { x1: 4, y1: 7, x2: 20, y2: 7 } },
+    { el: 'circle', attrs: { cx: 9, cy: 7, r: 1.7 } },
+    { el: 'line', attrs: { x1: 4, y1: 12, x2: 20, y2: 12 } },
+    { el: 'circle', attrs: { cx: 15, cy: 12, r: 1.7 } },
+    { el: 'line', attrs: { x1: 4, y1: 17, x2: 20, y2: 17 } },
+    { el: 'circle', attrs: { cx: 11, cy: 17, r: 1.7 } }
   ],
   newConversation: [
-    { el: 'circle', attrs: { cx: 12, cy: 12, r: 7.2 } },
-    { el: 'line', attrs: { x1: 12, y1: 8.5, x2: 12, y2: 15.5 } },
-    { el: 'line', attrs: { x1: 8.5, y1: 12, x2: 15.5, y2: 12 } }
+    { el: 'path', attrs: { d: 'M5 4h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-6l-4 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z' } },
+    { el: 'line', attrs: { x1: 12, y1: 8.2, x2: 12, y2: 12.8 } },
+    { el: 'line', attrs: { x1: 9.2, y1: 10.5, x2: 14.8, y2: 10.5 } }
   ],
   export: [
     { el: 'line', attrs: { x1: 12, y1: 5, x2: 12, y2: 15 } },
@@ -26,10 +27,9 @@ const ICON_SPECS = {
     { el: 'line', attrs: { x1: 6, y1: 19, x2: 18, y2: 19 } }
   ],
   copy: [
-    { el: 'rect', attrs: { x: 8.5, y: 7, width: 10, height: 12, rx: 1.6 } },
-    { el: 'rect', attrs: { x: 5.5, y: 5, width: 10, height: 12, rx: 1.6 } },
-    { el: 'line', attrs: { x1: 9.5, y1: 11, x2: 15.5, y2: 11 } },
-    { el: 'line', attrs: { x1: 9.5, y1: 14, x2: 15.5, y2: 14 } }
+    { el: 'rect', attrs: { x: 9, y: 6.5, width: 9.5, height: 11.5, rx: 2 } },
+    { el: 'path', attrs: { d: 'M6 9V6a2 2 0 0 1 2-2h7.5' } },
+    { el: 'path', attrs: { d: 'M6 9h-1a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9.5' } }
   ],
   chevronDown: [
     { el: 'polyline', attrs: { points: '6 9 12 15 18 9' } }
