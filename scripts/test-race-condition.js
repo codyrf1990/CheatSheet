@@ -49,23 +49,32 @@ export async function testRaceCondition() {
     await Promise.all(tasks);
     await stateQueue.whenIdle();
 
-    const settings = JSON.parse(localStorage.getItem('solidcam.chatbot.settings') || '{}');
-    const conversations = JSON.parse(localStorage.getItem('solidcam.chatbot.conversations') || '[]');
+    const cheatsheetState = JSON.parse(localStorage.getItem('solidcam-cheatsheet-state') || '{}');
+    const latestState = stateQueue.latestState || {};
 
     const integrity = {
-      settingsValid: typeof settings === 'object' && settings !== null,
-      apiKeysObject: typeof settings.apiKeys === 'object',
-      conversationsValid: Array.isArray(conversations),
-      conversationCount: Array.isArray(conversations) ? conversations.length : 0,
-      latestStateRecorded: typeof stateQueue.latestState === 'object' && stateQueue.latestState !== null,
+      stateValid: typeof cheatsheetState === 'object' && cheatsheetState !== null,
+      panelsValid: typeof cheatsheetState.panels === 'object' && cheatsheetState.panels !== null,
+      packagesValid:
+        typeof cheatsheetState.packages === 'object' && cheatsheetState.packages !== null,
+      latestStateRecorded:
+        typeof latestState === 'object' && latestState !== null,
+      stateMatchesQueue:
+        JSON.stringify(cheatsheetState.panels || {}) ===
+          JSON.stringify(latestState.panels || {}) &&
+        JSON.stringify(cheatsheetState.packages || {}) ===
+          JSON.stringify(latestState.packages || {}),
+      touchedPanels: Object.keys(cheatsheetState.panels || {}).length > 0,
+      touchedPackages: Object.keys(cheatsheetState.packages || {}).length > 0
     };
 
     const passed =
       errors === 0 &&
-      integrity.settingsValid &&
-      integrity.apiKeysObject &&
-      integrity.conversationsValid &&
-      integrity.latestStateRecorded;
+      integrity.stateValid &&
+      integrity.panelsValid &&
+      integrity.packagesValid &&
+      integrity.latestStateRecorded &&
+      integrity.stateMatchesQueue;
 
     console.log('\n📊 Race Test Summary:', {
       iterations,
