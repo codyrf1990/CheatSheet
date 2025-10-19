@@ -136,15 +136,47 @@ export function loadConversations() {
     return [];
   }
 
-  return stored
+  const sanitized = stored
     .map(sanitizeConversation)
     .filter(Boolean)
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+  const cleaned = cleanupOldConversations(sanitized);
+  if (cleaned.length !== sanitized.length) {
+    writeJson(STORAGE_KEYS.conversations, cleaned);
+  }
+  return cleaned;
 }
 
 export function saveConversations(conversations) {
-  if (!Array.isArray(conversations)) return;
-  writeJson(STORAGE_KEYS.conversations, conversations);
+  if (!Array.isArray(conversations)) {
+    return { success: false, error: 'InvalidPayload' };
+  }
+  return writeJson(STORAGE_KEYS.conversations, conversations);
+}
+
+export function cleanupOldConversations(conversations = []) {
+  if (!Array.isArray(conversations) || !conversations.length) {
+    return [];
+  }
+
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const MAX_CONVERSATIONS = 20;
+
+  const withinAge = conversations.filter(conversation => {
+    const updatedAt = typeof conversation.updatedAt === 'number' ? conversation.updatedAt : null;
+    const createdAt = typeof conversation.createdAt === 'number' ? conversation.createdAt : null;
+    const reference = updatedAt ?? createdAt ?? now;
+    return now - reference < THIRTY_DAYS_MS;
+  });
+
+  const sorted = withinAge.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  if (sorted.length <= MAX_CONVERSATIONS) {
+    return sorted;
+  }
+
+  return sorted.slice(0, MAX_CONVERSATIONS);
 }
 
 export function createConversation(options = {}) {
@@ -290,11 +322,17 @@ function readJson(key, fallback) {
 }
 
 function writeJson(key, value) {
-  if (!hasStorage()) return;
+  if (!hasStorage()) {
+    return { success: true };
+  }
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    return { success: true };
   } catch (error) {
+    const name = error?.name || 'StorageWriteError';
+    const message = error?.message || 'Failed to write storage';
     console.warn('Failed to write storage', key, error);
+    return { success: false, error: name, message };
   }
 }
 

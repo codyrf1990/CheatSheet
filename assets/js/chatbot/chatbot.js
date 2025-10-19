@@ -10,6 +10,7 @@ import {
   saveSettings,
   loadConversations,
   saveConversations,
+  cleanupOldConversations,
   createConversation,
   generateMessageId,
   DEFAULT_PROMPTS,
@@ -45,6 +46,8 @@ const SUPPORTED_PROVIDER_IDS = PROVIDER_CATALOG.map(provider => provider.id);
 const DEFAULT_PROVIDER_ID = PROVIDER_MAP.has(DEFAULT_SETTINGS.provider)
   ? DEFAULT_SETTINGS.provider
   : PROVIDER_CATALOG[0]?.id || 'google';
+const MAX_EFFECTIVE_MESSAGES = 1000;
+const MIN_REQUIRED_MESSAGE_CAPACITY = 2;
 
 export function initializeChatbot() {
   const container = document.querySelector('[data-chatbot-container]');
@@ -105,6 +108,9 @@ export function initializeChatbot() {
     onToggleDebug: handleToggleDebug
   });
 
+  let isDestroyed = false;
+  const teardownCallbacks = [];
+
   ui.setSidebarWidths(state.settings.sidebarWidths);
   ui.setMode(state.activeMode, MODE_DEFS[state.activeMode]);
   ui.setPrompts(state.prompts);
@@ -138,6 +144,50 @@ export function initializeChatbot() {
     ragEngine.ingest(state.contextSnapshot);
   }
 
+  const performCleanup = () => {
+    if (isDestroyed) {
+      return;
+    }
+    isDestroyed = true;
+
+    while (teardownCallbacks.length) {
+      const callback = teardownCallbacks.pop();
+      try {
+        callback();
+      } catch (error) {
+        console.warn('[Chatbot] Cleanup callback failed.', error);
+      }
+    }
+
+    contextProcessor.stop();
+    contextProcessor.removeListener('snapshot');
+
+    if (ui && typeof ui.teardown === 'function') {
+      ui.teardown();
+    }
+  };
+
+  const registerWindowCleanup = () => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleBeforeUnload = () => {
+      performCleanup();
+    };
+    const handlePageHide = () => {
+      performCleanup();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
+
+    teardownCallbacks.push(() => window.removeEventListener('beforeunload', handleBeforeUnload));
+    teardownCallbacks.push(() => window.removeEventListener('pagehide', handlePageHide));
+  };
+
+  registerWindowCleanup();
+
   async function handleSend(text) {
     if (state.sending) {
       ui.showBanner('Please wait for the current response to finish.', 'warning');
@@ -164,7 +214,21 @@ export function initializeChatbot() {
       return;
     }
 
+    const effectiveCount = messageArchive.getEffectiveCount(
+      conversation.id,
+      conversation.messages
+    );
+    const remainingCapacity = MAX_EFFECTIVE_MESSAGES - effectiveCount;
+    if (remainingCapacity < MIN_REQUIRED_MESSAGE_CAPACITY) {
+      ui.showBanner('Conversation is too long. Start a new one to continue.', 'warning');
+      console.warn(
+        `[Chatbot] Max active messages (${MAX_EFFECTIVE_MESSAGES}) reached for conversation ${conversation.id}`
+      );
+      return;
+    }
+
     const prompt = getPromptForMode(state.prompts, state.activeMode);
+    const previousUpdatedAt = conversation.updatedAt;
 
     const userMessage = {
       id: generateMessageId('user'),
@@ -184,6 +248,21 @@ export function initializeChatbot() {
       conversation.messages.push(userMessage);
     }
     conversation.updatedAt = Date.now();
+
+    const effectiveAfterUser = messageArchive.getEffectiveCount(
+      conversation.id,
+      conversation.messages
+    );
+    if (effectiveAfterUser >= MAX_EFFECTIVE_MESSAGES) {
+      ui.showBanner('Conversation limit reached. Unable to continue this chat.', 'warning');
+      console.warn(
+        `[Chatbot] Max active messages reached after enqueuing user message for conversation ${conversation.id}`
+      );
+      conversation.messages = conversation.messages.filter(message => message.id !== userMessage.id);
+      conversation.updatedAt = previousUpdatedAt;
+      refreshConversationList();
+      return;
+    }
 
     ui.appendMessage(userMessage);
     ui.clearInput();
@@ -690,7 +769,40 @@ export function initializeChatbot() {
   }
 
   function persistConversations() {
-    saveConversations(state.conversations);
+    const result = saveConversations(state.conversations);
+    if (!result || result.success) {
+      return true;
+    }
+
+    if (result.error === 'InvalidPayload') {
+      console.warn('[Chatbot] Failed to save conversations: invalid payload.');
+      return false;
+    }
+
+    if (result.error === 'QuotaExceededError') {
+      const trimmed = cleanupOldConversations(state.conversations);
+      if (trimmed.length < state.conversations.length) {
+        state.conversations = trimmed;
+        if (!trimmed.some(conversation => conversation.id === state.activeConversationId)) {
+          state.activeConversationId = trimmed[0]?.id || null;
+        }
+        const retry = saveConversations(state.conversations);
+        if (retry?.success) {
+          refreshConversationList();
+          return true;
+        }
+      }
+
+      if (ui && typeof ui.showBanner === 'function') {
+        ui.showBanner('Storage is full. Clear older conversations to continue.', 'warning');
+      }
+      return false;
+    }
+
+    if (ui && typeof ui.showBanner === 'function') {
+      ui.showBanner('Failed to save conversation changes.', 'error');
+    }
+    return false;
   }
 
   function persistSettings(partial) {
@@ -755,6 +867,10 @@ export function initializeChatbot() {
     state.debug = debugData;
     ui.setDebugData(debugData);
   }
+
+  return {
+    destroy: performCleanup
+  };
 }
 
 function mapConversationSummaries(conversations, mode) {

@@ -133,6 +133,7 @@ class ChatbotUI {
     this.toastTimers = new Map();
     this.apiKeyInputs = new Map();
     this.promptSaveTimers = new Map();
+    this.registeredListeners = [];
     this.providerOptionButtons = new Map();
     this.modelOptionButtons = new Map();
     this.openMenus = {
@@ -142,6 +143,14 @@ class ChatbotUI {
 
     this.handleDocumentKeydown = this.handleDocumentKeydown.bind(this);
     this.handleDocumentPointerDown = this.handleDocumentPointerDown.bind(this);
+  }
+
+  addListener(target, event, handler, options) {
+    if (!target || typeof target.addEventListener !== 'function' || typeof handler !== 'function') {
+      return;
+    }
+    target.addEventListener(event, handler, options);
+    this.registeredListeners.push({ target, event, handler, options });
   }
 
   init() {
@@ -778,7 +787,7 @@ class ChatbotUI {
     if (this.handlersBound) return;
     this.handlersBound = true;
 
-    this.refs.card.addEventListener('click', event => {
+    this.addListener(this.refs.card, 'click', event => {
       const actionEl = event.target.closest('[data-action]');
       if (!actionEl) return;
       const action = actionEl.dataset.action;
@@ -836,19 +845,19 @@ class ChatbotUI {
       }
     });
 
-    this.refs.settingsForm.addEventListener('submit', event => {
+    this.addListener(this.refs.settingsForm, 'submit', event => {
       event.preventDefault();
       this.handleSettingsSave();
     });
 
     if (this.refs.debugToggle) {
-      this.refs.debugToggle.addEventListener('change', event => {
+      this.addListener(this.refs.debugToggle, 'change', event => {
         const checked = event.target.checked;
         this.callbacks.onToggleDebug(checked);
       });
     }
 
-    this.refs.conversationList.addEventListener('click', event => {
+    this.addListener(this.refs.conversationList, 'click', event => {
       const button = event.target.closest('[data-conversation-id]');
       if (!button) return;
       const id = button.dataset.conversationId;
@@ -856,29 +865,29 @@ class ChatbotUI {
       this.callbacks.onSelectConversation(id);
     });
 
-    this.refs.flyoutBackdrop.addEventListener('click', () => {
+    this.addListener(this.refs.flyoutBackdrop, 'click', () => {
       this.closeFlyouts();
     });
 
-    this.refs.input.addEventListener('input', () => this.handleInputChange());
-    this.refs.input.addEventListener('keydown', event => {
+    this.addListener(this.refs.input, 'input', () => this.handleInputChange());
+    this.addListener(this.refs.input, 'keydown', event => {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         this.requestSend();
       }
     });
 
-    this.refs.sendButton.addEventListener('click', () => this.requestSend());
+    this.addListener(this.refs.sendButton, 'click', () => this.requestSend());
 
     if (this.refs.providerPickerList) {
-      this.refs.providerPickerList.addEventListener('click', event => {
+      this.addListener(this.refs.providerPickerList, 'click', event => {
         const button = event.target.closest('[data-provider-option]');
         if (!button) return;
         event.preventDefault();
         const providerId = button.dataset.providerOption;
         this.selectProviderOption(providerId);
       });
-      this.refs.providerPickerList.addEventListener('keydown', event => {
+      this.addListener(this.refs.providerPickerList, 'keydown', event => {
         if (!this.openMenus.provider) return;
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault();
@@ -904,7 +913,7 @@ class ChatbotUI {
     }
 
     if (this.refs.providerBadge) {
-      this.refs.providerBadge.addEventListener('keydown', event => {
+      this.addListener(this.refs.providerBadge, 'keydown', event => {
         if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           this.openProviderPicker();
@@ -915,7 +924,7 @@ class ChatbotUI {
     }
 
     if (this.refs.modelButton) {
-      this.refs.modelButton.addEventListener('keydown', event => {
+      this.addListener(this.refs.modelButton, 'keydown', event => {
         if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           this.openModelMenu();
@@ -929,13 +938,13 @@ class ChatbotUI {
     }
 
     if (this.refs.modelMenuList) {
-      this.refs.modelMenuList.addEventListener('click', event => {
+      this.addListener(this.refs.modelMenuList, 'click', event => {
         const button = event.target.closest('[data-model-option]');
         if (!button) return;
         event.preventDefault();
         this.selectModelOption(button.dataset.modelOption);
       });
-      this.refs.modelMenuList.addEventListener('keydown', event => {
+      this.addListener(this.refs.modelMenuList, 'keydown', event => {
         if (!this.openMenus.model) return;
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault();
@@ -962,11 +971,11 @@ class ChatbotUI {
 
     this.apiKeyInputs.forEach((input, providerId) => {
       if (!input) return;
-      input.addEventListener('blur', () => this.persistApiKey(providerId, { silent: false }));
-      input.addEventListener('paste', () => {
+      this.addListener(input, 'blur', () => this.persistApiKey(providerId, { silent: false }));
+      this.addListener(input, 'paste', () => {
         setTimeout(() => this.persistApiKey(providerId, { silent: false }), 0);
       });
-      input.addEventListener('keydown', event => {
+      this.addListener(input, 'keydown', event => {
         if (event.key === 'Enter') {
           event.preventDefault();
           this.persistApiKey(providerId, { silent: false });
@@ -978,17 +987,48 @@ class ChatbotUI {
     Object.entries(this.promptEditors).forEach(([mode, editor]) => {
       if (!editor) return;
       if (editor.nameInput) {
-        editor.nameInput.addEventListener('input', () => this.schedulePromptSave(mode));
-        editor.nameInput.addEventListener('blur', () => this.flushPromptSave(mode));
+        this.addListener(editor.nameInput, 'input', () => this.schedulePromptSave(mode));
+        this.addListener(editor.nameInput, 'blur', () => this.flushPromptSave(mode));
       }
       if (editor.contentInput) {
-        editor.contentInput.addEventListener('input', () => this.schedulePromptSave(mode));
-        editor.contentInput.addEventListener('blur', () => this.flushPromptSave(mode));
+        this.addListener(editor.contentInput, 'input', () => this.schedulePromptSave(mode));
+        this.addListener(editor.contentInput, 'blur', () => this.flushPromptSave(mode));
       }
     });
 
-    document.addEventListener('pointerdown', this.handleDocumentPointerDown, true);
-    document.addEventListener('keydown', this.handleDocumentKeydown);
+    this.addListener(document, 'pointerdown', this.handleDocumentPointerDown, true);
+    this.addListener(document, 'keydown', this.handleDocumentKeydown);
+  }
+
+  teardown() {
+    if (Array.isArray(this.registeredListeners)) {
+      this.registeredListeners.forEach(({ target, event, handler, options }) => {
+        if (target && typeof target.removeEventListener === 'function') {
+          target.removeEventListener(event, handler, options);
+        }
+      });
+      this.registeredListeners = [];
+    }
+
+    this.handlersBound = false;
+
+    this.toastTimers.forEach(timer => clearTimeout(timer));
+    this.toastTimers.clear();
+
+    this.promptSaveTimers.forEach(timer => clearTimeout(timer));
+    this.promptSaveTimers.clear();
+
+    if (this.scrollToBottomRaf && typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(this.scrollToBottomRaf);
+    }
+    this.scrollToBottomRaf = null;
+
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+
+    this.clearToasts();
   }
 
   buildApi() {
@@ -1015,7 +1055,8 @@ class ChatbotUI {
       setButtonLoading: (buttonRef, loading) => this.setButtonLoading(buttonRef, loading),
       closeFlyouts: () => this.closeFlyouts(),
       setDebugVisibility: visible => this.setDebugVisibility(visible),
-      setDebugData: data => this.setDebugData(data)
+      setDebugData: data => this.setDebugData(data),
+      teardown: () => this.teardown()
     };
   }
   getFlyout(name) {

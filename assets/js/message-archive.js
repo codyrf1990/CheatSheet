@@ -15,6 +15,7 @@ class MessageArchive {
     this.batchSize = options.batchSize || DEFAULT_ARCHIVE_BATCH;
     this.dbPromise = null;
     this.warnedIdbUnavailable = false;
+    this.overflowBuffer = new Map();
   }
 
   async init() {
@@ -67,23 +68,70 @@ class MessageArchive {
         activeMessages.length - this.maxActiveMessages
       );
       const toArchive = activeMessages.splice(0, overflow);
-      try {
+      let retries = 0;
+      let archived = false;
+      while (retries < 3 && !archived) {
         logger.startTimer('archive-batch');
-        await this.archiveMessages(conversationId, toArchive);
-        logger.endTimer('message-archive', 'archive-batch');
-        logger.log('message-archive', `Archived overflow messages`, {
-          archivedCount: toArchive.length,
-          remainingActive: activeMessages.length
+        try {
+          await this.archiveMessages(conversationId, toArchive);
+          archived = true;
+          logger.endTimer('message-archive', 'archive-batch');
+          logger.log('message-archive', `Archived overflow messages`, {
+            archivedCount: toArchive.length,
+            remainingActive: activeMessages.length
+          });
+        } catch (error) {
+          logger.endTimer('message-archive', 'archive-batch');
+          logger.warn('message-archive', 'Failed to archive overflow messages.', error);
+          retries += 1;
+          if (retries < 3) {
+            const delay = Math.pow(2, retries - 1) * 500;
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      if (!archived) {
+        const existing = this.overflowBuffer.get(conversationId) || [];
+        const buffered = [...existing, ...toArchive];
+        this.overflowBuffer.set(conversationId, buffered);
+        logger.warn('message-archive', `Queued overflow messages for later archive`, {
+          bufferedCount: buffered.length,
+          conversationId
         });
-      } catch (error) {
-        logger.endTimer('message-archive', 'archive-batch');
-        logger.warn('message-archive', 'Failed to archive overflow messages.', error);
-        // On failure, reinsert the messages at the front so they remain active.
-        activeMessages.unshift(...toArchive);
+      } else {
+        await this.flushOverflow(conversationId);
       }
     }
 
     return activeMessages;
+  }
+
+  async flushOverflow(conversationId) {
+    const buffered = this.overflowBuffer.get(conversationId);
+    if (!buffered || !buffered.length) {
+      return true;
+    }
+
+    try {
+      await this.archiveMessages(conversationId, buffered);
+      this.overflowBuffer.delete(conversationId);
+      logger.log('message-archive', `Flushed overflow buffer`, {
+        flushedCount: buffered.length,
+        conversationId
+      });
+      return true;
+    } catch (error) {
+      logger.warn('message-archive', 'Overflow flush failed', error);
+      return false;
+    }
+  }
+
+  getEffectiveCount(conversationId, activeMessages = []) {
+    const buffered = this.overflowBuffer.get(conversationId);
+    const bufferedCount = Array.isArray(buffered) ? buffered.length : 0;
+    const activeCount = Array.isArray(activeMessages) ? activeMessages.length : 0;
+    return activeCount + bufferedCount;
   }
 
   async archiveMessages(conversationId, messages) {
@@ -173,7 +221,19 @@ class MessageArchive {
       createdAt: entry.timestamp,
       archived: true,
     }));
-    return [...sanitizedArchived, ...(Array.isArray(activeMessages) ? activeMessages : [])];
+    const buffered = this.overflowBuffer.get(conversationId) || [];
+    const bufferedMessages = buffered.map(entry => ({
+      id: entry.id,
+      role: entry.role,
+      content: entry.content,
+      createdAt: entry.createdAt,
+      pendingArchive: true,
+    }));
+    return [
+      ...bufferedMessages,
+      ...sanitizedArchived,
+      ...(Array.isArray(activeMessages) ? activeMessages : [])
+    ];
   }
 
   warnIndexedDbUnavailable(error) {
