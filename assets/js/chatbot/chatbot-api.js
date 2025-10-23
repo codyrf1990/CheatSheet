@@ -1,4 +1,8 @@
-const RETRY_DELAYS = [500, 1200, 2500];
+const MAX_API_ATTEMPTS = 4;
+const BASE_BACKOFF_MS = 1000;
+const MAX_BACKOFF_MS = 30000;
+const REQUEST_TIMEOUT_MS = 30000;
+const EPSILON = 1e-9;
 const STREAM_TERMINATOR = '[DONE]';
 
 export class ChatbotApiManager {
@@ -6,6 +10,16 @@ export class ChatbotApiManager {
     this.fetchImpl =
       (typeof options.fetch === 'function' && options.fetch) ||
       (typeof fetch === 'function' ? fetch.bind(typeof window !== 'undefined' ? window : null) : null);
+    this.rateLimiter =
+      options.rateLimiter instanceof HybridRateLimiter
+        ? options.rateLimiter
+        : new HybridRateLimiter({
+            tokensPerMinute: Number.isFinite(options.tokensPerMinute)
+              ? Math.max(1, options.tokensPerMinute)
+              : 20,
+            burstSize: Number.isFinite(options.burstSize) ? Math.max(1, options.burstSize) : 3
+          });
+    this.onLimiterUpdate = typeof options.onLimiterUpdate === 'function' ? options.onLimiterUpdate : null;
   }
 
   async sendMessage({
@@ -30,6 +44,21 @@ export class ChatbotApiManager {
       throw new ChatbotApiError('API_KEY_MISSING', 'No API key configured for provider.');
     }
 
+    let limiterStatus = null;
+    if (this.rateLimiter) {
+      const limiterResult = this.rateLimiter.consume();
+      limiterStatus = limiterResult.status || null;
+      if (this.onLimiterUpdate && limiterStatus) {
+        this.onLimiterUpdate(limiterStatus);
+      }
+      if (!limiterResult.allowed) {
+        throw new ChatbotApiError('RATE_LIMITED', 'Request limit reached. Please wait before trying again.', {
+          retryInMs: limiterResult.retryInMs,
+          limiterStatus
+        });
+      }
+    }
+
     const payload = config.buildPayload({ messages, prompt, context, ragResults, model: targetModel });
     const url =
       typeof config.resolveEndpoint === 'function'
@@ -42,17 +71,48 @@ export class ChatbotApiManager {
       body: JSON.stringify(payload)
     };
 
+    let attempt = 0;
+    let backoffMs = BASE_BACKOFF_MS;
     let lastError;
-    for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt += 1) {
+
+    while (attempt < MAX_API_ATTEMPTS) {
+      const controller = createAbortController();
+      const attemptInit = {
+        ...requestInit,
+        signal: controller?.signal
+      };
+
+      const timeoutId = setTimeout(() => {
+        if (controller) {
+          const timeoutReason = typeof DOMException === 'function'
+            ? new DOMException('Request timed out', 'AbortError')
+            : Object.assign(new Error('Request timed out'), { name: 'AbortError' });
+          controller.abort(timeoutReason);
+        }
+      }, REQUEST_TIMEOUT_MS);
+
       try {
-        const response = await this.fetchImpl(url, requestInit);
+        const response = await this.fetchImpl(url, attemptInit);
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
-          const bodyText = await response.text();
-          throw new ChatbotApiError('API_HTTP_ERROR', `Provider responded with status ${response.status}`, {
+          const bodyText = await safeReadResponseText(response);
+          const error = new ChatbotApiError('API_HTTP_ERROR', `Provider responded with status ${response.status}`, {
             status: response.status,
             body: bodyText
           });
+
+          lastError = error;
+          if (shouldRetryStatus(response.status) && attempt < MAX_API_ATTEMPTS - 1) {
+            const retryAfter = extractRetryAfterMillis(response.headers);
+            const delayMs = retryAfter ?? calculateBackoffWithJitter(backoffMs);
+            await delay(delayMs);
+            attempt += 1;
+            backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS);
+            continue;
+          }
+
+          throw error;
         }
 
         if (config.streaming && response.body) {
@@ -61,6 +121,9 @@ export class ChatbotApiManager {
               onToken(chunk);
             }
           });
+          if (this.rateLimiter && this.onLimiterUpdate) {
+            this.onLimiterUpdate(this.rateLimiter.getStatus());
+          }
           console.debug('[SolidCAM Chat API]', {
             provider: providerId,
             model: targetModel,
@@ -78,6 +141,9 @@ export class ChatbotApiManager {
         if (typeof onToken === 'function') {
           onToken(text);
         }
+        if (this.rateLimiter && this.onLimiterUpdate) {
+          this.onLimiterUpdate(this.rateLimiter.getStatus());
+        }
         console.debug('[SolidCAM Chat API]', {
           provider: providerId,
           model: targetModel,
@@ -89,20 +155,39 @@ export class ChatbotApiManager {
           ragResults
         };
       } catch (error) {
-        lastError =
+        clearTimeout(timeoutId);
+
+        const normalizedError =
           error instanceof ChatbotApiError
             ? error
-            : new ChatbotApiError('API_REQUEST_FAILED', error.message || 'Unknown error', { error });
+            : new ChatbotApiError('API_REQUEST_FAILED', error?.message || 'Unknown error', { error });
 
-        if (attempt < RETRY_DELAYS.length - 1) {
-          await delay(RETRY_DELAYS[attempt]);
+        if (normalizedError.type !== 'RATE_LIMITED' && this.rateLimiter && this.onLimiterUpdate) {
+          this.onLimiterUpdate(this.rateLimiter.getStatus());
+        }
+
+        lastError = normalizedError;
+        const retryAllowed = shouldRetryError(normalizedError) && attempt < MAX_API_ATTEMPTS - 1;
+        if (retryAllowed) {
+          const delayMs = calculateBackoffWithJitter(backoffMs);
+          await delay(delayMs);
+          attempt += 1;
+          backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS);
           continue;
         }
-        throw lastError;
+
+        throw normalizedError;
       }
     }
 
     throw lastError || new ChatbotApiError('API_REQUEST_FAILED', 'Unknown API failure');
+  }
+
+  getLimiterStatus() {
+    if (!this.rateLimiter) {
+      return null;
+    }
+    return this.rateLimiter.getStatus();
   }
 }
 
@@ -436,6 +521,185 @@ function delay(ms) {
       setTimeout(resolve, ms);
     }
   });
+}
+
+class HybridRateLimiter {
+  constructor({ tokensPerMinute = 20, burstSize = 3, windowMs = 60000 } = {}) {
+    this.perMinuteLimit = Math.max(1, Math.floor(tokensPerMinute));
+    this.maxTokens = Math.max(1, burstSize);
+    this.windowMs = Math.max(windowMs, 1000);
+    this.tokens = this.maxTokens;
+    this.lastRefill = Date.now();
+    this.tokenRatePerMs = this.perMinuteLimit / this.windowMs;
+    this.requestLog = [];
+  }
+
+  consume(now = Date.now()) {
+    this.refill(now);
+    this.cleanupRequestLog(now);
+
+    const statusSnapshot = () => this.buildStatus(now);
+
+    if (this.tokens + EPSILON < 1) {
+      return {
+        allowed: false,
+        retryInMs: this.timeUntilNextToken(now),
+        status: statusSnapshot()
+      };
+    }
+
+    if (this.requestLog.length >= this.perMinuteLimit) {
+      return {
+        allowed: false,
+        retryInMs: this.timeUntilWindowReset(now),
+        status: statusSnapshot()
+      };
+    }
+
+    this.tokens = Math.max(0, this.tokens - 1);
+    this.requestLog.push(now);
+
+    return {
+      allowed: true,
+      retryInMs: 0,
+      status: statusSnapshot()
+    };
+  }
+
+  getStatus(now = Date.now()) {
+    this.refill(now);
+    this.cleanupRequestLog(now);
+    return this.buildStatus(now);
+  }
+
+  refill(now) {
+    if (this.tokens >= this.maxTokens) {
+      this.lastRefill = now;
+      return;
+    }
+    const elapsed = Math.max(0, now - this.lastRefill);
+    if (elapsed <= 0) {
+      return;
+    }
+    const tokensToAdd = elapsed * this.tokenRatePerMs;
+    if (tokensToAdd > 0) {
+      this.tokens = Math.min(this.maxTokens, this.tokens + tokensToAdd);
+      this.lastRefill = now;
+    }
+  }
+
+  cleanupRequestLog(now) {
+    while (this.requestLog.length && now - this.requestLog[0] >= this.windowMs) {
+      this.requestLog.shift();
+    }
+  }
+
+  timeUntilNextToken(now) {
+    if (this.tokens >= 1 - EPSILON) {
+      return 0;
+    }
+    if (this.tokenRatePerMs <= 0) {
+      return this.windowMs;
+    }
+    const deficit = 1 - this.tokens;
+    return Math.max(0, Math.ceil(deficit / this.tokenRatePerMs));
+  }
+
+  timeUntilWindowReset(now) {
+    if (!this.requestLog.length) {
+      return 0;
+    }
+    return Math.max(0, this.windowMs - (now - this.requestLog[0]));
+  }
+
+  buildStatus(now) {
+    const nextTokenInMs = this.timeUntilNextToken(now);
+    const windowResetInMs = this.timeUntilWindowReset(now);
+    return {
+      tokens: Math.max(0, Math.floor(this.tokens)),
+      tokensExact: Number(this.tokens.toFixed(3)),
+      maxTokens: this.maxTokens,
+      requestsInWindow: this.requestLog.length,
+      perMinuteLimit: this.perMinuteLimit,
+      windowMs: this.windowMs,
+      nextTokenInMs,
+      windowResetInMs,
+      remainingWindowRequests: Math.max(0, this.perMinuteLimit - this.requestLog.length)
+    };
+  }
+}
+
+function createAbortController() {
+  if (typeof AbortController === 'function') {
+    return new AbortController();
+  }
+  return null;
+}
+
+function shouldRetryStatus(status) {
+  if (!status) return false;
+  if (status === 408 || status === 425 || status === 429) return true;
+  if (status >= 500 && status < 600) return true;
+  return false;
+}
+
+function shouldRetryError(error) {
+  if (!(error instanceof ChatbotApiError)) {
+    return false;
+  }
+  const status = error?.details?.status;
+  if (typeof status === 'number') {
+    return shouldRetryStatus(status);
+  }
+
+  const underlying = error?.details?.error;
+  if (underlying) {
+    if (underlying.name === 'AbortError') {
+      return true;
+    }
+    if (underlying.name === 'TypeError' || underlying.name === 'NetworkError') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function calculateBackoffWithJitter(base) {
+  const clampedBase = Math.min(base, MAX_BACKOFF_MS);
+  const jitterMultiplier = 0.5 + Math.random() * 0.5;
+  return Math.min(Math.round(clampedBase * jitterMultiplier), MAX_BACKOFF_MS);
+}
+
+function extractRetryAfterMillis(headers) {
+  if (!headers || typeof headers.get !== 'function') {
+    return null;
+  }
+  const retryAfter = headers.get('retry-after');
+  if (!retryAfter) {
+    return null;
+  }
+
+  const numericDelay = Number(retryAfter);
+  if (Number.isFinite(numericDelay)) {
+    return Math.max(0, numericDelay * 1000);
+  }
+
+  const parsedDate = Date.parse(retryAfter);
+  if (Number.isFinite(parsedDate)) {
+    const now = Date.now();
+    return Math.max(0, parsedDate - now);
+  }
+
+  return null;
+}
+
+async function safeReadResponseText(response) {
+  try {
+    return await response.text();
+  } catch (error) {
+    return `<<unavailable: ${error?.message || 'failed to read response'}>>`;
+  }
 }
 
 function buildFallbackResponse(messages, prompt, providerId, model, context, ragResults, onToken) {
