@@ -18,6 +18,19 @@ Interactive reference for the SolidCAM team that combines the package matrix, ma
    - `assets/js/app.js` – bootstraps the UI.
    - `assets/js` modules – `dom.js` (main render + behaviors), `calculator.js`, `email-templates.js`, and supporting helpers.
 
+### Chatbot architecture snapshot
+
+Phase 3 refactored the chatbot stack into small, testable modules:
+
+- `assets/js/chatbot/chatbot.js` – slim orchestrator that wires dependencies and forwards UI events.
+- `chatbot-constants.js` – shared enums, mode metadata, and the documented `FEATURE_TOGGLES` (all default to `true`; treat them as release toggles rather than runtime switches).
+- `chatbot-mode-manager.js` – activates modes, syncs the context processor, and orchestrates RAG ingestion/search.
+- `chatbot-conversation-manager.js` – conversation CRUD, archiving, capacity checks, and title derivation.
+- `chatbot-state-manager.js` – typed accessors around prompts, settings, API keys, sidebar widths, and debug snapshots.
+- `chatbot-event-handlers.js` – facade that implements UI callbacks using the managers above.
+
+See `docs/PHASE_3_TESTING_COMPLETE.md` for the latest regression notes.
+
 ### Tips & workflows
 
 - **Editing package content** - Enable "Edit Order" to drag rows/cards; toggle Add/Remove Bit for custom items. Use "Reset Order" to discard local changes or "Reset Checks" to clear selections only.
@@ -26,11 +39,12 @@ Interactive reference for the SolidCAM team that combines the package matrix, ma
 
 ### Automated checks
 
-- Run `npm test` (Node 18+) to execute the JSDOM smoke suite. It covers:
+- Run `npm test` (Node 18+) to execute the aggregated smoke suite. It covers:
   - Email template bootstrapping and selection (`scripts/test-email-templates.js`).
   - Template authoring workflow (`scripts/test-email-add.js`).
   - Package-bit add/move/remove persistence checks (`scripts/test-packages.js`).
   - Master/sub checkbox state propagation and reset guardrails (`scripts/test-checkboxes.js`).
+  - Chatbot manager unit coverage (`scripts/test-chatbot-managers.js`) – exercises mode/state/conversation managers and verifies the documented feature toggles stay enabled.
 - Console output is JSON per check; anything with `"success": false` needs a follow-up.
 
 ### Manual QA checklist
