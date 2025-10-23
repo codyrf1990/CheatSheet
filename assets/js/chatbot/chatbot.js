@@ -3,6 +3,20 @@ import { ChatbotApiManager, getProviderCatalog } from './chatbot-api.js';
 import { ChatbotContextProcessor } from './chatbot-context.js';
 import { ChatbotRagEngine } from './chatbot-rag.js';
 import { messageArchive } from '../message-archive.js';
+import { ChatbotConversationManager } from './chatbot-conversation-manager.js';
+import { ChatbotModeManager } from './chatbot-mode-manager.js';
+import { createChatbotEventHandlers } from './chatbot-event-handlers.js';
+import { ChatbotStateManager } from './chatbot-state-manager.js';
+import {
+  FEATURE_TOGGLES,
+  MODE_DEFS,
+  MODE_GENERAL,
+  MODE_LIST,
+  MODE_PACKAGE,
+  SIDEBAR_NAMES,
+  STATUS_READY,
+  sanitizeMode
+} from './chatbot-constants.js';
 import {
   loadPrompts,
   savePrompts,
@@ -17,37 +31,20 @@ import {
   DEFAULT_SETTINGS
 } from './chatbot-storage.js';
 
-const STATUS_READY = 'ready';
-const STATUS_THINKING = 'thinking';
-const STATUS_ERROR = 'error';
-const SIDEBAR_NAMES = ['conversations', 'settings'];
-const MODE_PACKAGE = 'package';
-const MODE_GENERAL = 'general';
-const MODE_DEFS = {
-  [MODE_PACKAGE]: {
-    id: MODE_PACKAGE,
-    label: 'Package Assistant',
-    title: 'SolidCAM Package Architect',
-    subtitle: 'Guide reps through packages, maintenance, and dongles',
-    placeholder: 'Ask about SolidCAM packages, maintenance SKUs, or dongles...'
-  },
-  [MODE_GENERAL]: {
-    id: MODE_GENERAL,
-    label: 'General Assistant',
-    title: 'SolidCAM Enterprise Assistant',
-    subtitle: 'Support the team with research, communication, and policy',
-    placeholder: 'Ask the SolidCAM team assistant anything internal...'
-  }
-};
-const MODE_LIST = [MODE_PACKAGE, MODE_GENERAL];
 const PROVIDER_CATALOG = getProviderCatalog();
 const PROVIDER_MAP = new Map(PROVIDER_CATALOG.map(provider => [provider.id, provider]));
 const SUPPORTED_PROVIDER_IDS = PROVIDER_CATALOG.map(provider => provider.id);
 const DEFAULT_PROVIDER_ID = PROVIDER_MAP.has(DEFAULT_SETTINGS.provider)
   ? DEFAULT_SETTINGS.provider
   : PROVIDER_CATALOG[0]?.id || 'google';
-const MAX_EFFECTIVE_MESSAGES = 1000;
-const MIN_REQUIRED_MESSAGE_CAPACITY = 2;
+
+const isSupportedProvider = providerId => SUPPORTED_PROVIDER_IDS.includes(providerId);
+const getDefaultProviderId = () => DEFAULT_PROVIDER_ID;
+const isSidebarName = name => SIDEBAR_NAMES.includes(name);
+
+let modeManager = null;
+let conversationManager = null;
+let stateManager = null;
 
 export function initializeChatbot() {
   const container = document.querySelector('[data-chatbot-container]');
@@ -55,12 +52,33 @@ export function initializeChatbot() {
     return;
   }
 
-  const apiManager = new ChatbotApiManager();
+  const apiManager = new ChatbotApiManager({
+    tokensPerMinute: 20,
+    burstSize: 3,
+    onLimiterUpdate: status => {
+      if (FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager) {
+        stateManager.setRateLimitStatus(status);
+      } else {
+        state.rateLimitStatus = status;
+        if (state.settings.showDebugPanel) {
+          updateDebugPanel();
+        }
+      }
+    }
+  });
   const contextProcessor = new ChatbotContextProcessor();
   const ragEngine = new ChatbotRagEngine();
   messageArchive.init().catch(error => {
     console.warn('[Chatbot] Message archive initialization failed.', error);
   });
+
+  modeManager = FEATURE_TOGGLES.USE_MODE_MANAGER
+    ? new ChatbotModeManager({
+        contextProcessor,
+        ragEngine,
+        buildConversationReferences
+      })
+    : null;
 
   const state = {
     prompts: ensurePrompts(loadPrompts()),
@@ -72,8 +90,68 @@ export function initializeChatbot() {
     contextSnapshot: null,
     sending: false,
     lastRagResults: [],
-    debug: null
+    debug: null,
+    rateLimitStatus: null
   };
+
+  conversationManager = FEATURE_TOGGLES.USE_CONVERSATION_MANAGER
+    ? new ChatbotConversationManager({
+        state,
+        messageArchive,
+        persistConversations,
+        refreshConversationList,
+        persistSettings,
+        ensureConversationTitle,
+        createConversation,
+        generateMessageId
+      })
+    : null;
+
+  stateManager = FEATURE_TOGGLES.USE_STATE_MANAGER
+    ? new ChatbotStateManager({
+        state,
+        saveSettings,
+        savePrompts,
+        persistConversations,
+        updateDebugPanel
+      })
+    : null;
+
+  const getSettings = () =>
+    FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager ? stateManager.settings : state.settings;
+
+  const updateSettingsSafe = partial => {
+    if (FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager) {
+      stateManager.updateSettings(partial);
+    } else {
+      persistSettings(partial);
+    }
+  };
+
+  const setSending = flag => {
+    if (FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager) {
+      stateManager.sending = flag;
+    } else {
+      state.sending = Boolean(flag);
+    }
+  };
+
+  const setLastRagResults = results => {
+    if (FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager) {
+      stateManager.lastRagResults = Array.isArray(results) ? results : [];
+    } else {
+      state.lastRagResults = Array.isArray(results) ? results : [];
+    }
+  };
+
+  const getLastRagResults = () =>
+    FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager
+      ? stateManager.lastRagResults
+      : state.lastRagResults;
+
+  if (conversationManager && FEATURE_TOGGLES.USE_CONVERSATION_MANAGER) {
+    conversationManager.persistSettings = updateSettingsSafe;
+  }
 
   ensureProviderMaps(state.settings);
   if (!SUPPORTED_PROVIDER_IDS.includes(state.settings.provider)) {
@@ -86,6 +164,8 @@ export function initializeChatbot() {
   const startingConversation = ensureConversationForMode(state, state.activeMode, { createIfMissing: true });
   state.activeConversationId = startingConversation?.id || null;
 
+  let eventHandlers;
+
   const ui = createChatbotUI({
     container,
     modes: MODE_LIST.map(mode => ({
@@ -93,23 +173,73 @@ export function initializeChatbot() {
       label: MODE_DEFS[mode].label
     })),
     providers: PROVIDER_CATALOG,
-    onSend: handleSend,
-    onNewConversation: handleNewConversation,
-    onSelectConversation: handleSelectConversation,
-    onCopyConversation: handleCopyConversation,
-    onModeChange: handleModeChange,
-    onProviderChange: handleProviderChange,
-    onModelChange: handleModelChange,
-    onSettingsSave: handleSettingsSave,
-    onSettingsClose: handleSettingsClose,
-    onClearApiKey: handleClearApiKey,
-    onSidebarWidthChange: handleSidebarWidthChange,
-    onPromptReset: handlePromptReset,
-    onToggleDebug: handleToggleDebug
+    onSend: text => eventHandlers.handleSend(text),
+    onNewConversation: () => eventHandlers.handleNewConversation(),
+    onSelectConversation: id => eventHandlers.handleSelectConversation(id),
+    onCopyConversation: () => eventHandlers.handleCopyConversation(),
+    onModeChange: mode => eventHandlers.handleModeChange(mode),
+    onProviderChange: providerId => eventHandlers.handleProviderChange(providerId),
+    onModelChange: modelId => eventHandlers.handleModelChange(modelId),
+    onSettingsSave: payload => eventHandlers.handleSettingsSave(payload),
+    onSettingsClose: () => eventHandlers.handleSettingsClose(),
+    onClearApiKey: providerId => eventHandlers.handleClearApiKey(providerId),
+    onSidebarWidthChange: (name, width) =>
+      eventHandlers.handleSidebarWidthChange(name, width),
+    onPromptReset: mode => eventHandlers.handlePromptReset(mode),
+    onToggleDebug: show => eventHandlers.handleToggleDebug(show)
   });
 
   let isDestroyed = false;
   const teardownCallbacks = [];
+
+  eventHandlers = createChatbotEventHandlers({
+    state,
+    ui,
+    apiManager,
+    contextProcessor,
+    ragEngine,
+    modeManager,
+    conversationManager,
+    stateManager,
+    messageArchive,
+    helpers: {
+      featureToggles: FEATURE_TOGGLES,
+      getSettings,
+      updateSettingsSafe,
+      setSending,
+      setLastRagResults,
+      getLastRagResults,
+      refreshConversationList,
+      persistConversations,
+      ensureConversationForMode,
+      ensureConversationTitle,
+      findConversation,
+      createConversation,
+      generateMessageId,
+      buildConversationReferences,
+      buildReferences,
+      friendlyErrorMessage,
+      getPromptForMode,
+      createPlainApiKeyMap,
+      ensureProviderModel,
+      getProviderModels,
+      getProviderLabelById,
+      setEncryptedApiKey,
+      getPlainApiKey,
+      ensurePrompts,
+      DEFAULT_PROMPTS,
+      delayStatusReset,
+      logProviderRun,
+      updateDebugPanel,
+      copyToClipboard,
+      saveSettings,
+      savePrompts,
+      syncModelDropdown,
+      isSupportedProvider,
+      getDefaultProviderId,
+      isSidebarName
+    }
+  });
 
   ui.setSidebarWidths(state.settings.sidebarWidths);
   ui.setMode(state.activeMode, MODE_DEFS[state.activeMode]);
@@ -130,15 +260,25 @@ export function initializeChatbot() {
     if (state.activeMode !== MODE_PACKAGE) {
       return;
     }
-    state.contextSnapshot = snapshot;
-    ragEngine.ingest(snapshot);
-    if (state.settings.showDebugPanel) {
+    if (FEATURE_TOGGLES.USE_MODE_MANAGER && modeManager) {
+      modeManager.updateSnapshot(snapshot);
+    }
+    state.contextSnapshot = snapshot || null;
+    if (snapshot) {
+      ragEngine.ingest(snapshot);
+    } else {
+      ragEngine.reset([]);
+    }
+    if (getSettings().showDebugPanel) {
       updateDebugPanel();
     }
   };
 
   contextProcessor.onUpdate('snapshot', handleSnapshot);
-  if (state.activeMode === MODE_PACKAGE) {
+  if (FEATURE_TOGGLES.USE_MODE_MANAGER && modeManager) {
+    const activation = modeManager.activate(state.activeMode);
+    state.contextSnapshot = activation.snapshot || null;
+  } else if (state.activeMode === MODE_PACKAGE) {
     contextProcessor.start();
     state.contextSnapshot = contextProcessor.getSnapshot();
     ragEngine.ingest(state.contextSnapshot);
@@ -159,7 +299,18 @@ export function initializeChatbot() {
       }
     }
 
-    contextProcessor.stop();
+    if (FEATURE_TOGGLES.USE_MODE_MANAGER && modeManager) {
+      modeManager.cleanup();
+      modeManager = null;
+    } else {
+      contextProcessor.stop();
+    }
+    if (FEATURE_TOGGLES.USE_CONVERSATION_MANAGER) {
+      conversationManager = null;
+    }
+    if (FEATURE_TOGGLES.USE_STATE_MANAGER) {
+      stateManager = null;
+    }
     contextProcessor.removeListener('snapshot');
 
     if (ui && typeof ui.teardown === 'function') {
@@ -188,577 +339,11 @@ export function initializeChatbot() {
 
   registerWindowCleanup();
 
-  async function handleSend(text) {
-    if (state.sending) {
-      ui.showBanner('Please wait for the current response to finish.', 'warning');
-      return;
-    }
-
-    const providerId = state.settings.provider;
-    const providerLabel = getProviderLabelById(providerId);
-    const modelId = ensureProviderModel(state.settings, providerId);
-    const apiKeyPlain = getPlainApiKey(state.settings, providerId);
-    if (!apiKeyPlain) {
-      ui.showBanner(`Add a ${providerLabel} API key in Settings before sending messages.`, 'warning');
-      return;
-    }
-
-    if (!modelId) {
-      ui.showBanner(`Select a model for ${providerLabel} before sending messages.`, 'warning');
-      return;
-    }
-
-    const conversation = ensureActiveConversation();
-    if (!conversation) {
-      ui.showBanner('Unable to locate the active conversation. Start a new chat.', 'error');
-      return;
-    }
-
-    const effectiveCount = messageArchive.getEffectiveCount(
-      conversation.id,
-      conversation.messages
-    );
-    const remainingCapacity = MAX_EFFECTIVE_MESSAGES - effectiveCount;
-    if (remainingCapacity < MIN_REQUIRED_MESSAGE_CAPACITY) {
-      ui.showBanner('Conversation is too long. Start a new one to continue.', 'warning');
-      console.warn(
-        `[Chatbot] Max active messages (${MAX_EFFECTIVE_MESSAGES}) reached for conversation ${conversation.id}`
-      );
-      return;
-    }
-
-    const prompt = getPromptForMode(state.prompts, state.activeMode);
-    const previousUpdatedAt = conversation.updatedAt;
-
-    const userMessage = {
-      id: generateMessageId('user'),
-      role: 'user',
-      content: text,
-      createdAt: Date.now(),
-      references: []
-    };
-    try {
-      conversation.messages = await messageArchive.addMessage(
-        conversation.id,
-        userMessage,
-        conversation.messages
-      );
-    } catch (error) {
-      console.warn('[Chatbot] Failed to archive user message. Falling back to in-memory only.', error);
-      conversation.messages.push(userMessage);
-    }
-    conversation.updatedAt = Date.now();
-
-    const effectiveAfterUser = messageArchive.getEffectiveCount(
-      conversation.id,
-      conversation.messages
-    );
-    if (effectiveAfterUser >= MAX_EFFECTIVE_MESSAGES) {
-      ui.showBanner('Conversation limit reached. Unable to continue this chat.', 'warning');
-      console.warn(
-        `[Chatbot] Max active messages reached after enqueuing user message for conversation ${conversation.id}`
-      );
-      conversation.messages = conversation.messages.filter(message => message.id !== userMessage.id);
-      conversation.updatedAt = previousUpdatedAt;
-      refreshConversationList();
-      return;
-    }
-
-    ui.appendMessage(userMessage);
-    ui.clearInput();
-    persistConversations();
-    refreshConversationList();
-
-    const historyMessages = conversation.messages
-      .filter(message => message.role !== 'system' || message.content)
-      .map(({ role, content }) => ({ role, content }));
-
-    let context = null;
-    let ragResults = [];
-    if (state.activeMode === MODE_PACKAGE) {
-      const snapshot = state.contextSnapshot || contextProcessor.getSnapshot();
-      context = snapshot;
-      ragEngine.ingest(snapshot);
-      ragResults = ragEngine.search(text);
-    } else {
-      context = null;
-      ragResults = await buildConversationReferences(conversation.id, conversation.messages);
-    }
-
-    state.lastRagResults = Array.isArray(ragResults) ? ragResults : [];
-
-    const assistantMessage = {
-      id: generateMessageId('assistant'),
-      role: 'assistant',
-      content: '',
-      createdAt: Date.now(),
-      references: []
-    };
-    try {
-      conversation.messages = await messageArchive.addMessage(
-        conversation.id,
-        assistantMessage,
-        conversation.messages
-      );
-    } catch (error) {
-      console.warn('[Chatbot] Failed to archive assistant message. Falling back to in-memory only.', error);
-      conversation.messages.push(assistantMessage);
-    }
-    ui.appendMessage(assistantMessage);
-
-    state.sending = true;
-    ui.hideBanner();
-    ui.setStatus(STATUS_THINKING);
-    ui.setStreaming(true);
-
-    const startTime = Date.now();
-
-    apiManager
-      .sendMessage({
-        messages: historyMessages,
-        prompt,
-        provider: providerId,
-        model: modelId,
-        apiKey: apiKeyPlain,
-        context,
-        ragResults,
-        onToken: chunk => {
-          assistantMessage.content = chunk;
-          ui.updateMessage(assistantMessage.id, { content: chunk, streaming: true });
-        }
-      })
-      .then(result => {
-        const finalText =
-          typeof result.text === 'string' && result.text.trim().length
-            ? result.text
-            : assistantMessage.content;
-        assistantMessage.content =
-          finalText && finalText.trim().length
-            ? finalText
-            : 'The provider returned an empty response. Try rephrasing or switching models.';
-          const rawReferences = result.ragResults || ragResults;
-          const shouldDisplayReferences = conversation.mode === MODE_PACKAGE;
-          const displayReferences = shouldDisplayReferences ? buildReferences(rawReferences) : [];
-          state.lastRagResults = rawReferences;
-          assistantMessage.references = displayReferences;
-          conversation.updatedAt = Date.now();
-          ensureConversationTitle(conversation);
-          ui.updateMessage(assistantMessage.id, {
-            content: assistantMessage.content,
-            references: assistantMessage.references,
-            streaming: false,
-            error: false
-          });
-          state.sending = false;
-          ui.setStreaming(false);
-          ui.setStatus(STATUS_READY);
-          ui.focusInput();
-          persistConversations();
-          refreshConversationList();
-          persistSettings({
-            lastConversationIds: {
-              ...state.settings.lastConversationIds,
-              [state.activeMode]: conversation.id
-            }
-          });
-          logProviderRun({
-            providerId,
-            modelId,
-            mode: state.activeMode,
-            durationMs: Date.now() - startTime,
-            textLength: assistantMessage.content.length,
-            ragCount: rawReferences.length
-          });
-          updateDebugPanel({
-            lastResponseLength: assistantMessage.content.length,
-            ragUsed: displayReferences.length > 0
-          });
-      })
-      .catch(error => {
-        const message = friendlyErrorMessage(error);
-        assistantMessage.content = message;
-        assistantMessage.error = true;
-        conversation.updatedAt = Date.now();
-        ui.updateMessage(assistantMessage.id, {
-          content: assistantMessage.content,
-          streaming: false,
-          error: true
-        });
-        state.sending = false;
-        ui.setStreaming(false);
-        ui.setStatus(STATUS_ERROR);
-        delayStatusReset();
-        ui.showBanner(message, 'error');
-        persistConversations();
-        refreshConversationList();
-        logProviderRun({
-          providerId,
-          modelId,
-          mode: state.activeMode,
-          durationMs: Date.now() - startTime,
-          textLength: 0,
-          ragCount: ragResults.length,
-          error: message
-        });
-        updateDebugPanel({ lastResponseLength: 0, ragUsed: false, error: message });
-      });
-  }
-
-  function handleNewConversation() {
-    const conversation = createConversation({ mode: state.activeMode });
-    state.conversations.unshift(conversation);
-    state.activeConversationId = conversation.id;
-    persistConversations();
-    refreshConversationList();
-    ui.setMessages(conversation.messages);
-    ui.focusInput();
-    persistSettings({
-      lastConversationIds: {
-        ...state.settings.lastConversationIds,
-        [state.activeMode]: conversation.id
-      }
-    });
-    if (state.settings.showDebugPanel) {
-      updateDebugPanel();
-    }
-  }
-
-  function handleSelectConversation(conversationId) {
-    const conversation = findConversation(state, conversationId);
-    if (!conversation) return;
-    if (conversation.mode !== state.activeMode) {
-      handleModeChange(conversation.mode, { conversationId });
-      return;
-    }
-    state.activeConversationId = conversation.id;
-    persistSettings({
-      lastConversationIds: {
-        ...state.settings.lastConversationIds,
-        [state.activeMode]: conversation.id
-      }
-    });
-    ui.setMessages(conversation.messages);
-    refreshConversationList();
-    ui.focusInput();
-    if (state.settings.showDebugPanel) {
-      updateDebugPanel();
-    }
-  }
-
-  function handleCopyConversation() {
-    const conversation = findConversation(state, state.activeConversationId);
-    if (!conversation) {
-      ui.showBanner('No conversation available to copy.', 'warning');
-      setTimeout(() => ui.hideBanner(), 2500);
-      return;
-    }
-
-    const lines = [];
-    const modeMeta = MODE_DEFS[conversation.mode] || null;
-    if (modeMeta) {
-      lines.push(`${modeMeta.label}`);
-    }
-    lines.push(`Provider: ${getProviderLabelById(state.settings.provider)}`);
-    lines.push(`Model: ${ensureProviderModel(state.settings, state.settings.provider)}`);
-
-    conversation.messages.forEach(message => {
-      const role = message.role === 'user' ? 'You' : message.role === 'assistant' ? 'Assistant' : (message.role || 'System');
-      const content = (message.content || '').trim();
-      const block = `${role}:\n${content}`;
-      lines.push(block.trimEnd());
-    });
-
-    const payload = lines.join('\n\n').trim();
-    if (!payload) {
-      ui.showBanner('Conversation is empty.', 'info');
-      setTimeout(() => ui.hideBanner(), 2500);
-      return;
-    }
-
-    copyToClipboard(payload)
-      .then(() => {
-        ui.showBanner('Conversation copied to clipboard.', 'success');
-        setTimeout(() => ui.hideBanner(), 2500);
-      })
-      .catch(() => {
-        ui.showBanner('Unable to copy conversation. Check browser permissions.', 'error');
-      });
-  }
-
-  function handleModeChange(mode, options = {}) {
-    const nextMode = sanitizeMode(mode);
-    if (!nextMode || nextMode === state.activeMode) {
-      return;
-    }
-
-    if (state.activeMode === MODE_PACKAGE) {
-      contextProcessor.stop();
-    }
-
-    state.activeMode = nextMode;
-    state.settings.activeMode = nextMode;
-    persistSettings({ activeMode: nextMode });
-
-    let conversation = null;
-    if (options.conversationId) {
-      const existing = findConversation(state, options.conversationId);
-      if (existing && existing.mode === nextMode) {
-        conversation = existing;
-      }
-    }
-    if (!conversation) {
-      conversation = ensureConversationForMode(state, nextMode, { createIfMissing: true });
-    }
-    state.activeConversationId = conversation ? conversation.id : null;
-
-    if (nextMode === MODE_PACKAGE) {
-      contextProcessor.start();
-      state.contextSnapshot = contextProcessor.getSnapshot();
-      ragEngine.ingest(state.contextSnapshot);
-    } else {
-      contextProcessor.stop();
-      state.contextSnapshot = null;
-      ragEngine.reset([]);
-    }
-
-    refreshConversationList();
-    ui.setMode(state.activeMode, MODE_DEFS[state.activeMode]);
-    ui.setMessages(conversation ? conversation.messages : []);
-    if (state.settings.showDebugPanel) {
-      updateDebugPanel();
-    }
-  }
-
-  function handleProviderChange(providerId) {
-    if (!SUPPORTED_PROVIDER_IDS.includes(providerId)) {
-      ui.showSettingsNotification('Unsupported provider selected.', 'warning');
-      return;
-    }
-    const previousProvider = state.settings.provider;
-    state.settings.provider = providerId;
-    ensureProviderModel(state.settings, providerId);
-    if (previousProvider !== providerId) {
-      persistSettings({
-        provider: providerId,
-        providerModels: { ...state.settings.providerModels }
-      });
-    }
-    ui.setSettings({
-      provider: state.settings.provider,
-      apiKeys: createPlainApiKeyMap(state.settings),
-      showDebugPanel: state.settings.showDebugPanel
-    });
-    syncModelDropdown();
-
-    // Only focus main input and close settings if we have a valid API key for this provider
-    const apiKey = getPlainApiKey(state.settings, providerId);
-    if (apiKey && apiKey.trim()) {
-      ui.focusInput();
-      ui.showSettingsNotification(`Switched to ${getProviderLabelById(providerId)}.`, 'success');
-    } else {
-      ui.showSettingsNotification(`Switched to ${getProviderLabelById(providerId)}. Please enter an API key.`, 'info');
-      // Keep settings open so user can enter the API key
-    }
-
-    if (state.settings.showDebugPanel) {
-      updateDebugPanel();
-    }
-  }
-
-  function handleModelChange(modelId) {
-    const providerId = state.settings.provider;
-    const models = getProviderModels(providerId);
-    if (!models.length) {
-      return;
-    }
-    const match = models.find(model => model.value === modelId);
-    if (!match) {
-      syncModelDropdown();
-      ui.showSettingsNotification('Selected model is not available for this provider.', 'warning');
-      return;
-    }
-    if (state.settings.providerModels[providerId] === modelId) {
-      return;
-    }
-    state.settings.providerModels[providerId] = modelId;
-    persistSettings({ providerModels: { ...state.settings.providerModels } });
-    syncModelDropdown();
-    ui.showSettingsNotification(`Model switched to ${match.label || modelId}.`, 'success');
-    if (state.settings.showDebugPanel) {
-      updateDebugPanel();
-    }
-  }
-
-  function handleSettingsSave({ provider, apiKey, targetProvider, prompts, showDebugPanel }) {
-    let providerId = state.settings.provider;
-    if (provider && SUPPORTED_PROVIDER_IDS.includes(provider)) {
-      if (provider !== state.settings.provider) {
-        state.settings.provider = provider;
-      }
-      providerId = provider;
-    } else if (!SUPPORTED_PROVIDER_IDS.includes(providerId)) {
-      providerId = DEFAULT_PROVIDER_ID;
-      state.settings.provider = providerId;
-    }
-
-    const apiTargetId = SUPPORTED_PROVIDER_IDS.includes(targetProvider) ? targetProvider : providerId;
-
-    if (typeof apiKey === 'string') {
-      setEncryptedApiKey(state.settings, apiTargetId, apiKey);
-    }
-
-    ensureProviderModel(state.settings, providerId);
-
-    if (prompts && typeof prompts === 'object') {
-      let changed = false;
-      MODE_LIST.forEach(modeKey => {
-        const current = state.prompts[modeKey];
-        const incoming = prompts[modeKey];
-        if (!incoming || typeof incoming !== 'object') {
-          return;
-        }
-        if (typeof incoming.name === 'string') {
-          const trimmedName = incoming.name.trim();
-          if (trimmedName && trimmedName !== current.name) {
-            state.prompts[modeKey] = {
-              ...state.prompts[modeKey],
-              name: trimmedName
-            };
-            changed = true;
-          }
-        }
-        if (typeof incoming.content === 'string') {
-          const trimmedContent = incoming.content.trim();
-          if (trimmedContent && trimmedContent !== current.content) {
-            state.prompts[modeKey] = {
-              ...state.prompts[modeKey],
-              content: trimmedContent
-            };
-            changed = true;
-          }
-        }
-      });
-      if (changed) {
-        savePrompts(state.prompts);
-        ui.setPrompts(state.prompts);
-      }
-    }
-
-    if (typeof showDebugPanel === 'boolean') {
-      state.settings.showDebugPanel = showDebugPanel;
-      ui.setDebugVisibility(showDebugPanel);
-    }
-
-    saveSettings(state.settings);
-
-    ui.setSettings({
-      provider: state.settings.provider,
-      apiKeys: createPlainApiKeyMap(state.settings),
-      showDebugPanel: state.settings.showDebugPanel
-    });
-    syncModelDropdown();
-    if (state.settings.showDebugPanel) {
-      updateDebugPanel();
-    }
-  }
-
-  function handleSettingsClose() {
-    ui.hideBanner();
-    ui.hideSettingsNotification();
-  }
-
-  function handleClearApiKey(providerId = state.settings.provider) {
-    let targetProvider = SUPPORTED_PROVIDER_IDS.includes(providerId) ? providerId : state.settings.provider;
-    if (!SUPPORTED_PROVIDER_IDS.includes(targetProvider)) {
-      targetProvider = DEFAULT_PROVIDER_ID;
-    }
-    setEncryptedApiKey(state.settings, targetProvider, '');
-    saveSettings(state.settings);
-    ui.setSettings({
-      provider: state.settings.provider,
-      apiKeys: createPlainApiKeyMap(state.settings),
-      showDebugPanel: state.settings.showDebugPanel
-    });
-    syncModelDropdown();
-    const label = getProviderLabelById(targetProvider);
-    ui.showSettingsNotification(`${label} API key cleared.`, 'info');
-  }
-
-  function handleSidebarWidthChange(name, width) {
-    if (!SIDEBAR_NAMES.includes(name)) {
-      return;
-    }
-    const nextSidebarWidths = {
-      ...(state.settings.sidebarWidths && typeof state.settings.sidebarWidths === 'object'
-        ? state.settings.sidebarWidths
-        : {})
-    };
-    const numericWidth = Number(width);
-    let changed = false;
-    if (Number.isFinite(numericWidth) && numericWidth > 0) {
-      const rounded = Math.round(numericWidth);
-      if (nextSidebarWidths[name] !== rounded) {
-        nextSidebarWidths[name] = rounded;
-        changed = true;
-      }
-    } else if (Object.prototype.hasOwnProperty.call(nextSidebarWidths, name)) {
-      delete nextSidebarWidths[name];
-      changed = true;
-    }
-    if (!changed) {
-      return;
-    }
-    persistSettings({ sidebarWidths: nextSidebarWidths });
-  }
-
-  function handlePromptReset(mode) {
-    const normalized = sanitizeMode(mode);
-    if (!normalized) return;
-    const defaults = ensurePrompts(DEFAULT_PROMPTS);
-    state.prompts[normalized] = { ...defaults[normalized] };
-    savePrompts(state.prompts);
-    ui.setPrompts(state.prompts);
-    ui.showSettingsNotification(`${MODE_DEFS[normalized].label} prompt reset to default.`, 'info');
-    if (state.settings.showDebugPanel) {
-      updateDebugPanel();
-    }
-  }
-
-  function handleToggleDebug(show) {
-    const next = Boolean(show);
-    if (state.settings.showDebugPanel === next) {
-      return;
-    }
-    state.settings.showDebugPanel = next;
-    persistSettings({ showDebugPanel: next });
-    ui.setDebugVisibility(next);
-    if (next) {
-      updateDebugPanel();
-    }
-  }
-
   function syncModelDropdown() {
-    const providerId = state.settings.provider;
+    const providerId = getSettings().provider;
     const models = getProviderModels(providerId);
-    const activeModel = ensureProviderModel(state.settings, providerId);
+    const activeModel = ensureProviderModel(getSettings(), providerId);
     ui.setModels(providerId, models, activeModel);
-  }
-
-  function ensureActiveConversation() {
-    let conversation = findConversation(state, state.activeConversationId);
-    if (conversation && conversation.mode === state.activeMode) {
-      return conversation;
-    }
-    conversation = ensureConversationForMode(state, state.activeMode, { createIfMissing: true });
-    state.activeConversationId = conversation ? conversation.id : null;
-    persistSettings({
-      lastConversationIds: {
-        ...state.settings.lastConversationIds,
-        [state.activeMode]: conversation ? conversation.id : null
-      }
-    });
-    refreshConversationList();
-    return conversation;
   }
 
   function refreshConversationList() {
@@ -838,12 +423,13 @@ export function initializeChatbot() {
   }
 
   function updateDebugPanel(extra = {}) {
-    if (!ui || !state.settings.showDebugPanel) {
+    const settingsRef = getSettings();
+    if (!ui || !settingsRef.showDebugPanel) {
       state.debug = null;
       return;
     }
-    const providerId = state.settings.provider;
-    const modelId = ensureProviderModel(state.settings, providerId);
+    const providerId = settingsRef.provider;
+    const modelId = ensureProviderModel(settingsRef, providerId);
     const prompt = getPromptForMode(state.prompts, state.activeMode);
     const conversation = findConversation(state, state.activeConversationId);
     const debugData = {
@@ -861,7 +447,21 @@ export function initializeChatbot() {
         state.activeMode === MODE_PACKAGE
           ? summarizeContext(state.contextSnapshot)
           : 'Conversation history only',
-      ragTitles: state.lastRagResults.map(entry => entry.document?.title).filter(Boolean).join(', '),
+      ragTitles: getLastRagResults()
+        .map(entry => entry.document?.title)
+        .filter(Boolean)
+        .join(', '),
+      rateLimit: state.rateLimitStatus
+        ? {
+            tokensExact: state.rateLimitStatus.tokensExact,
+            burstRemaining: state.rateLimitStatus.tokens,
+            burstCapacity: state.rateLimitStatus.maxTokens,
+            perMinuteLimit: state.rateLimitStatus.perMinuteLimit,
+            remainingWindowRequests: state.rateLimitStatus.remainingWindowRequests,
+            nextTokenInMs: state.rateLimitStatus.nextTokenInMs,
+            windowResetInMs: state.rateLimitStatus.windowResetInMs
+          }
+        : null,
       ...extra
     };
     state.debug = debugData;
@@ -1202,15 +802,34 @@ function copyToClipboard(text) {
 
 function friendlyErrorMessage(error) {
   if (!error) return 'The provider could not process the request.';
+
   if (error.type === 'API_KEY_MISSING') {
     return 'No API key configured. Add a key in Settings and try again.';
   }
-  if (error.type === 'API_HTTP_ERROR') {
-    return `Provider returned status ${error.details?.status || 'unknown'}. Check the logs for details.`;
-  }
-  return error.message || 'Unexpected error while contacting the provider.';
-}
 
-function sanitizeMode(mode) {
-  return mode === MODE_GENERAL ? MODE_GENERAL : MODE_PACKAGE;
+  if (error.type === 'RATE_LIMITED') {
+    const retryInMs = Number(error.details?.retryInMs) || 0;
+    const seconds = Math.max(1, Math.ceil(retryInMs / 1000));
+    return `You are sending messages too quickly. Try again in about ${seconds} second${seconds === 1 ? '' : 's'}.`;
+  }
+
+  if (error.type === 'API_HTTP_ERROR') {
+    const status = Number(error.details?.status);
+    if (status === 401 || status === 403) {
+      return 'The provider rejected the request. Check your API key and model permissions.';
+    }
+    if (status === 429) {
+      return 'The provider rate limit was reached. Please wait a bit before trying again.';
+    }
+    if (status >= 500) {
+      return 'The provider is experiencing issues. Please retry in a moment.';
+    }
+    return `Provider returned status ${status || 'unknown'}. Check the logs for details.`;
+  }
+
+  if (error.type === 'API_REQUEST_FAILED') {
+    return 'The request could not be completed. Check your network connection and try again.';
+  }
+
+  return error.message || 'Unexpected error while contacting the provider.';
 }

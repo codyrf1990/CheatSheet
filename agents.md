@@ -24,6 +24,13 @@ Keep task status accurate; no coding without an active Archon task.
 - App bootstrap initializes `dom.js`, `calculator.js`, `email-templates.js`, and the chatbot stack.
 - Canonical seed data: `assets/js/data.js`; persistence wrapper: `assets/js/persistence.js` with key `solidcam-cheatsheet-state`.
 - State collection/hydration lives in `collectState` / `applyState` within `dom.js`.
+- Chatbot orchestration (Phase 3 refactor):
+  - `assets/js/chatbot/chatbot.js` – orchestrator wiring UI ↔ managers.
+  - `chatbot-constants.js` – shared enums + documented `FEATURE_TOGGLES` (locked to `true` for GA; update documentation if you ever change them).
+  - `chatbot-mode-manager.js` – mode activation, context processor lifecycle, RAG ingestion/search.
+  - `chatbot-conversation-manager.js` – conversation CRUD, archiving, capacity checks, title enforcement.
+  - `chatbot-state-manager.js` – safe accessors around prompts/settings/API keys/sidebar widths/debug snapshots.
+  - `chatbot-event-handlers.js` – UI facade calling into the managers.
 - For full architecture and feature contracts, **see `claude.md`**.
 
 ## Daily Workflow Tips
@@ -40,6 +47,7 @@ Keep task status accurate; no coding without an active Archon task.
 - Chatbot: send test messages, ensure history persists, and storage keys stay under quota.
 - Test copy-to-clipboard on code blocks outside edit mode.
 - Resize viewport to confirm compact layout remains intact.
+- Chatbot regression (Phase 3+): run the 12-step smoke list in `docs/PHASE_3_TESTING_COMPLETE.md` and execute `npm test` to confirm the manager unit suite stays green.
 
 ## Reference & Support
 - Architecture deep dive, RAG snippets, and workflow context live in `claude.md`.

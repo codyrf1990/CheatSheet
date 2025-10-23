@@ -1,3 +1,5 @@
+import { sanitizeMode } from './chatbot-constants.js';
+
 const STORAGE_KEYS = {
   conversations: 'solidcam.chatbot.conversations',
   settings: 'solidcam.chatbot.settings',
@@ -69,10 +71,6 @@ export function loadPrompts() {
 export function savePrompts(prompts) {
   const sanitized = sanitizePrompts(prompts);
   writeJson(STORAGE_KEYS.prompts, sanitized);
-}
-
-export function resetPrompts() {
-  savePrompts(cloneDefaultPrompts());
 }
 
 export function loadSettings() {
@@ -196,7 +194,7 @@ export function generateMessageId(role = 'msg') {
   return generateId(role);
 }
 
-export function sanitizeConversation(conversation) {
+function sanitizeConversation(conversation) {
   if (!conversation || typeof conversation !== 'object') return null;
   if (!conversation.id) return null;
   const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
@@ -212,7 +210,7 @@ export function sanitizeConversation(conversation) {
   };
 }
 
-export function sanitizeMessage(message) {
+function sanitizeMessage(message) {
   if (!message || typeof message !== 'object') return null;
   const id = typeof message.id === 'string' && message.id.trim() ? message.id.trim() : generateMessageId();
   const role = ['user', 'assistant', 'system'].includes(message.role) ? message.role : 'user';
@@ -303,10 +301,6 @@ function sanitizeLastConversationIds(value) {
     package: typeof value.package === 'string' && value.package.trim() ? value.package.trim() : base.package,
     general: typeof value.general === 'string' && value.general.trim() ? value.general.trim() : base.general
   };
-}
-
-function sanitizeMode(value) {
-  return value === 'general' ? 'general' : 'package';
 }
 
 function readJson(key, fallback) {
