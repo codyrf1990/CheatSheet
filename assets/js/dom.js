@@ -173,24 +173,28 @@ export function renderApp(mount) {
     const audio = document.getElementById('jump-scare-audio');
     if (audio) {
       audio.load();
-      // Prime the audio by playing and immediately pausing (fixes first-click delay)
-      audio.volume = 0;
+      // Prime the audio on first user interaction (required for GitHub Pages/strict browsers)
       const primeAudio = () => {
+        audio.volume = 0;
         audio.play().then(() => {
           audio.pause();
           audio.currentTime = 0;
           audio.volume = 1;
         }).catch(() => {
-          // If autoplay blocked, audio will still be loaded for manual play
+          // If play fails, at least the audio is loaded
           audio.volume = 1;
         });
       };
-      // Try to prime on user interaction if needed
-      if (document.readyState === 'complete') {
+
+      // Prime on first click or keypress anywhere on the page
+      const primeOnInteraction = () => {
         primeAudio();
-      } else {
-        window.addEventListener('load', primeAudio, { once: true });
-      }
+        document.removeEventListener('click', primeOnInteraction, true);
+        document.removeEventListener('keypress', primeOnInteraction, true);
+      };
+
+      document.addEventListener('click', primeOnInteraction, { once: true, capture: true });
+      document.addEventListener('keypress', primeOnInteraction, { once: true, capture: true });
     }
   }
 
