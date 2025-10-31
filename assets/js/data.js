@@ -180,13 +180,14 @@ export const panels = [
     title: 'SolidWorks Maintenance',
     editable: true,
     items: [
+      'SW-Info-Maint',
       'SW-P-Maint',
       'SW-PA-Maint',
       'SW-Pro-Maint',
       'SW-Pro-Net-Maint',
+      'SW-Recap',
       'SW-Std-Maint',
-      'SW-Std-Net-Maint',
-      'SW-Info-Maint'
+      'SW-Std-Net-Maint'
     ]
   }
 ];

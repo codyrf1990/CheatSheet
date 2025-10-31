@@ -217,22 +217,26 @@ a {
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(38, 38, 38, 0.9);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: inherit;
-  font-size: 0.7rem;
-  font-weight: 700;
-  line-height: 1;
+  display: inline-block;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: calc(0.95rem - 2px);
   color: #f2f2f2;
-  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), border var(--transition-fast);
+  text-align: center;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border var(--transition-fast);
 }
 
 /* Make the PACKAGE BITS +/- 10% larger than the panel buttons */
 .package-header .mode-toggle {
   width: calc(0.95rem * 1.1);
   height: calc(0.95rem * 1.1);
-  font-size: calc(0.7rem * 1.1);
+  font-size: calc(0.72rem * 1.1);
+  line-height: calc((0.95rem * 1.1) - 2px);
 }
 
 .mode-toggle[data-action="package-toggle-add-mode"],
