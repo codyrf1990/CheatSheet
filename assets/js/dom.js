@@ -5,6 +5,9 @@ import { loadState, clearState } from './persistence.js';
 import { stateQueue } from './state-queue.js';
 import { logger } from './debug-logger.js';
 
+// Halloween mode toggle - set to false after Halloween
+const HALLOWEEN_MODE = true;
+
 let editMode = false;
 let packageAddMode = false;
 let packageRemoveMode = false;
@@ -129,6 +132,66 @@ export function renderApp(mount) {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = renderAboutOverlay();
     root.appendChild(wrapper.firstElementChild);
+  }
+
+  // Inject Sales Tax modal once per render
+  if (!root.querySelector('[data-modal="sales-tax"]')) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = renderSalesTaxModal();
+    root.appendChild(wrapper.firstElementChild);
+  }
+
+  // Inject Current Products modal once per render
+  if (!root.querySelector('[data-modal="current-products"]')) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = renderCurrentProductsModal();
+    root.appendChild(wrapper.firstElementChild);
+  }
+
+  // Setup modal backdrop click and keyboard handlers
+  setupModalBackdropHandlers(root);
+  setupModalKeyboardHandlers(root);
+
+  // Inject Halloween overlay if enabled
+  if (HALLOWEEN_MODE && !root.querySelector('.halloween-overlay')) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = renderHalloweenOverlay();
+    root.appendChild(wrapper.firstElementChild);
+    // Initialize crawling spiders and flying bugs
+    initHalloweenSpiders();
+    initHalloweenFlies();
+  }
+
+  // Inject jump scare overlay if enabled
+  if (HALLOWEEN_MODE && !root.querySelector('.jump-scare-overlay')) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = renderJumpScareOverlay();
+    const nodes = Array.from(wrapper.children);
+    nodes.forEach(node => root.appendChild(node));
+
+    // Preload audio for instant playback
+    const audio = document.getElementById('jump-scare-audio');
+    if (audio) {
+      audio.load();
+      // Prime the audio by playing and immediately pausing (fixes first-click delay)
+      audio.volume = 0;
+      const primeAudio = () => {
+        audio.play().then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.volume = 1;
+        }).catch(() => {
+          // If autoplay blocked, audio will still be loaded for manual play
+          audio.volume = 1;
+        });
+      };
+      // Try to prime on user interaction if needed
+      if (document.readyState === 'complete') {
+        primeAudio();
+      } else {
+        window.addEventListener('load', primeAudio, { once: true });
+      }
+    }
   }
 
   // Defensive: if the tab is backgrounded and later restored, ensure edit mode is off
@@ -317,9 +380,20 @@ function renderHeader() {
 
 function renderHeaderLink(link) {
   const intentClass = `${link.intent}-button`;
-  const safeHref = escapeAttr(link.href);
   const safeLabel = escapeHtml(link.label);
   const titleAttr = link.description ? ` title="${escapeAttr(link.description)}"` : '';
+
+  // If this is a modal button, render as button with data-action
+  if (link.isModal) {
+    return `
+      <button type="button" class="${intentClass}" data-action="open-${link.intent}"${titleAttr}>
+        ${safeLabel}
+      </button>
+    `;
+  }
+
+  // Otherwise render as external link
+  const safeHref = escapeAttr(link.href);
   return `
     <a href="${safeHref}" class="${intentClass}" target="_blank" rel="noopener noreferrer"${titleAttr}>
       ${safeLabel}
@@ -536,6 +610,410 @@ function renderAboutOverlay() {
   `;
 }
 
+function renderSalesTaxModal() {
+  return `
+    <div class="about-overlay" data-modal="sales-tax" role="dialog" aria-modal="true" aria-hidden="true">
+      <div class="about-modal">
+        <div class="about-modal-head">
+          <h3>U.S. Sales Tax Guide 2025</h3>
+          <button type="button" class="about-close" data-action="close-modal" aria-label="Close">×</button>
+        </div>
+        <div class="about-modal-body">
+          <h4>States Required to Collect Sales Tax</h4>
+          <p>The following states impose a state-level sales tax and require businesses with nexus to collect and remit sales tax on taxable goods and services:</p>
+          <ul>
+            <li>Arizona</li>
+            <li>Colorado</li>
+            <li>Pennsylvania</li>
+            <li>South Carolina</li>
+            <li>Tennessee</li>
+            <li>Utah</li>
+            <li>Washington</li>
+            <li>Wisconsin</li>
+            <li>Indiana</li>
+            <li>Massachusetts</li>
+            <li>Minnesota</li>
+            <li>North Carolina</li>
+            <li>Ohio</li>
+            <li>Michigan</li>
+          </ul>
+          <p>These states generally tax tangible personal property and some services, with variations by state and locality.</p>
+
+          <h4>States Exempt from State Sales Tax</h4>
+          <p>These states do not impose a statewide sales tax on goods or services:</p>
+          <ul>
+            <li>Alaska <em>(Note: Some localities in Alaska impose local sales taxes)</em></li>
+            <li>Delaware</li>
+            <li>Montana</li>
+            <li>New Hampshire</li>
+            <li>Oregon</li>
+          </ul>
+          <p>Residents and businesses in these states do not pay state sales tax but should check local rules and other taxes like use tax, income tax, or business taxes.</p>
+
+          <h4>States with Notable Exceptions on Sales Tax (Example: California)</h4>
+          <p>California is a state with a state sales tax but it has complex rules and specific exemptions for certain products and services, including:</p>
+          <ul>
+            <li>Sales tax exemptions on most food products for human consumption</li>
+            <li>Partial exemptions on certain medical devices</li>
+            <li>Specific rules on services, digital goods, and other categories</li>
+          </ul>
+          <p>California's combined state and local sales tax rates can be as high as 16.75%, with nuanced rules about taxability by product category.</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCurrentProductsModal() {
+  return `
+    <div class="about-overlay" data-modal="current-products" role="dialog" aria-modal="true" aria-hidden="true">
+      <div class="about-modal" style="max-width: 95vw; width: 1100px;">
+        <div class="about-modal-head">
+          <h3>Current Products & Licensing Guide</h3>
+          <button type="button" class="about-close" data-action="close-modal" aria-label="Close">×</button>
+        </div>
+        <div class="about-modal-body">
+          <h4>Table of Contents</h4>
+          <ul>
+            <li><a href="#licensing-section" style="color: var(--solidcam-gold); text-decoration: none;">Licensing</a></li>
+            <li><a href="#products-section" style="color: var(--solidcam-gold); text-decoration: none;">Current Product List</a></li>
+            <li><a href="#training-section" style="color: var(--solidcam-gold); text-decoration: none;">Training</a></li>
+            <li><a href="#solidworks-section" style="color: var(--solidcam-gold); text-decoration: none;">SOLIDWORKS Product Codes</a></li>
+            <li><a href="#postprocessor-section" style="color: var(--solidcam-gold); text-decoration: none;">Post Processor Services</a></li>
+          </ul>
+
+          <h4 id="licensing-section">Licensing</h4>
+          <p><strong>Lic-Info</strong> is everything a current customer has plus their maintenance end date and should be included as the first item on all Estimates and Invoices for existing customers.</p>
+          <p>For Estimates use <strong>Lic-Opt</strong> if type of license is unknown but switch to correct type once reviewed with customer and before submitting for invoicing.</p>
+          <p><strong>Lic-PK</strong>, <strong>Lic-HD</strong> and <strong>Lic-Net</strong> are utilized to account for new seats.</p>
+          <p><strong>Lic-Upgrade</strong> is utilized to identify the license and/or profile the upgrade will be applied too.</p>
+
+          <table style="font-size: 0.75rem; margin-top: 1rem;">
+            <thead>
+              <tr>
+                <th>Product/Service Name</th>
+                <th>SKU</th>
+                <th>Price</th>
+                <th>Sales Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>License - Options</td><td>Lic-Opt</td><td>0</td><td>INFORMATIONAL ONLY<br>Standalone Product Key (No Charge)<br>Hardware Dongle ($150 incl. S&H)<br>Networked Product Key ($600 per seat)<br>Timed License 45 days (Payment)</td></tr>
+              <tr><td>License - Info</td><td>Lic-Info</td><td>0</td><td>Current License Information<br>License #(s): [SC Lic #] [SW Lic #]<br>Maintenance End Date: [Enter Date]</td></tr>
+              <tr><td>License - Upgrade</td><td>Lic-Upgrade</td><td>0</td><td>Upgrade License<br>License #:<br>Profile #:</td></tr>
+              <tr><td>License - Product Key</td><td>Lic-PK</td><td>0</td><td>Standalone Product Key License<br>License #:</td></tr>
+              <tr><td>License - Networked</td><td>Lic-Net</td><td>600</td><td>Network License<br>License #:<br>Profile Info:</td></tr>
+              <tr><td>License - Hardware Dongle</td><td>Lic-HD</td><td>150</td><td>Physical Hardware Dongle<br>Dongle #:</td></tr>
+              <tr><td>License - Convert / Replace</td><td>Lic-Chg</td><td>200</td><td>SolidCAM License Conversions and Replacements<br>License #:</td></tr>
+              <tr><td>License - NX</td><td>Lic-NX</td><td>600</td><td>Networked License Option iMachining for NX (per seat cost)</td></tr>
+              <tr><td>License - EDU</td><td>Lic-EDU</td><td>0</td><td>Network Product Key (License Termed to One Year)</td></tr>
+            </tbody>
+          </table>
+
+          <h4 id="products-section" style="margin-top: 2rem;">Current Product List</h4>
+          <p>Utilize SKU numbers below when searching for a product in the line item on an estimate. All seats can start with SolidCAM Milling or SolidCAM Turning and then build on utilizing the "Upgrade Packages" and "Modules" sections below. SolidCAM Milling and Turning can be combined to create a Mill-Turn type seat.</p>
+
+          <table style="font-size: 0.75rem; margin-top: 1rem;">
+            <thead>
+              <tr>
+                <th>Product/Service Name</th>
+                <th>SKU</th>
+                <th>Sales Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">Foundational Packages</td></tr>
+              <tr><td>SolidCAM Milling</td><td>SC-Mill</td><td>Includes 2.5D toolpaths and strategies for prismatic parts, plus 4th and 5th indexing, C Axis Wrap, Automatic Feature Recognition (AFRM), Multi-Depth Drilling and High-Speed Surfacing (HSS).</td></tr>
+              <tr><td>SolidCAM Turning</td><td>SC-Turn</td><td>Foundational 2 Axis Turning module including Back Spindle.</td></tr>
+
+              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">SW Bundles</td></tr>
+              <tr><td>SolidCAM Milling Bundled with SOLIDWORKS</td><td>SW-SC-Mill</td><td>Adjust description to specific version of SW</td></tr>
+              <tr><td>SolidCAM Turning Bundled with SOLIDWORKS</td><td>SW-SC-Turn</td><td>Adjust description to specific version of SW</td></tr>
+
+              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">Upgrade Packages</td></tr>
+              <tr><td>Advanced Milling</td><td>SC-Mill-Adv</td><td>Includes iMachining 2D, Edge Breaking and Advanced Machine Simulation.</td></tr>
+              <tr><td>3D High Performance</td><td>SC-Mill-3D</td><td>Includes iMachining 3D and High-Speed Machining (HSM). [Requires iMachining 2D]</td></tr>
+              <tr><td>5 Axis Milling</td><td>SC-Mill-5Axis</td><td>Includes Simultaneous 4 and 5 Axis allowing for the machining of complex geometries with continuous 5-axis movement, Auto 3+2 Roughing, Rotary, HSM to 5 Axis Conversion, Multi Axis Drilling, Geodesic, Contour, SWARF and Multiaxis Machining.</td></tr>
+
+              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">Milling Modules</td></tr>
+              <tr><td>2.5D Milling + AFRM</td><td>SC-25M</td><td>Standard 2.5D Milling Operations including Profile, Pocket, and Drilling. Automatic Feature Recognition, Multi-Depth-Drilling; 4th, 5th Indexing and C Axis Wrap.</td></tr>
+              <tr><td>High-Speed Surfacing (HSS)</td><td>SC-HSS</td><td>Surface machining strategies that produce efficient, smooth, gouge-free, and optimal toolpaths to finish the selected surfaces on prismatic and 3D parts.</td></tr>
+              <tr><td>High-Speed Roughing (HSR)</td><td>SC-HSR</td><td>Designed for the overall roughing of complex 3D parts, such as molds and dies. Optimized for high-speed, continuous machine motion and productivity.</td></tr>
+              <tr><td>High-Speed Machining (HSM)</td><td>SC-HSM</td><td>Designed for the overall machining of complex 3D parts, such as molds and dies in both roughing and finishing. Optimized for high-speed, continuous machine motion and productivity. [Includes HSR]</td></tr>
+              <tr><td>iMachining 2D</td><td>SC-iMach2d</td><td>Generates highly efficient toolpaths for roughing and pocketing by maintaining constant tool engagement and optimizing cutting conditions.</td></tr>
+              <tr><td>iMachining 3D</td><td>SC-iMach3D</td><td>Automates roughing and rest roughing for 3D parts, using optimized toolpaths and cutting conditions to improve efficiency and tool life.</td></tr>
+              <tr><td>Simultaneous 4 Axis</td><td>SC-Sim4x</td><td>Advanced control over tool paths and collision checking, allowing for the machining of complex geometries with continuous 4 Axis movement.</td></tr>
+              <tr><td>Simultaneous 5 Axis Standard</td><td>SC-Sim5x</td><td>Includes: Simultaneous 5 Axis, Auto 3+2 Roughing, Rotary, HSM to 5 Axis Conversion, Contour 5 Axis Machining, Multi Axis Drilling, Geodesic and SWARF.</td></tr>
+              <tr><td>Edge Breaking</td><td>SC-EdgeBreak</td><td>Automatically deburrs sharp edges with precise tool orientation for enhanced part safety and quality.</td></tr>
+              <tr><td>Edge Trimming</td><td>SC-EdgeTrim</td><td>Precise tool paths for trimming thin materials, offering flexible tool orientation options.</td></tr>
+              <tr><td>Auto 3+2 Roughing</td><td>SC-Auto32</td><td>Intelligent 3+2 axis positioning and machining.</td></tr>
+              <tr><td>Multiaxis</td><td>SC-Multiaxis</td><td>Efficient material removal on complex parts using simultaneous multi-axis movements.</td></tr>
+              <tr><td>Port</td><td>SC-Port</td><td>Machine intake and exhaust ducts as well as inlets or outlets of pumps, in castings or steel blocks with tapered lollipop tools.</td></tr>
+              <tr><td>Multiblade</td><td>SC-Multiblade</td><td>Easily handles impellers and bladed disks, with multiple strategies to efficiently rough and finish each part.</td></tr>
+
+              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">Turning Modules</td></tr>
+              <tr><td>Multi-Turret Sync</td><td>SC-MTS</td><td>Coordinates multiple turrets in a CNC machine, enabling simultaneous machining operations.</td></tr>
+              <tr><td>Swiss</td><td>SC-Swiss</td><td>Advanced programming for Swiss CNC machines.</td></tr>
+
+              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">Add-on Modules</td></tr>
+              <tr><td>Machine Simulation</td><td>SC-MachSim</td><td>Advanced Machine Simulation features help detect potential collisions and verify tool paths.</td></tr>
+              <tr><td>Solid Probe - Home + Measurement</td><td>SC-Probe</td><td>Solid Probe Advanced includes: Easy Home definition, On-Machine Verification, Tool Presetter Support.</td></tr>
+              <tr><td>Vericut Integration</td><td>SC-Vericut</td><td>Integration for Vericut G-code Simulation software</td></tr>
+
+              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">SolidShop</td></tr>
+              <tr><td>CIMCO Editor</td><td>SolidShop-Editor</td><td>The G-Code editor-of-choice for professional CNC programmers.</td></tr>
+              <tr><td>SolidCAM for Operators</td><td>SC-4Op</td><td>Streamlines shop floor operations by providing access to program modifications and simulations at the machine.</td></tr>
+              <tr><td>SolidCAM for Operators - Simulation Only</td><td>SC-4Op-Sim</td><td>Provides access to program simulations at the machine and to tool, workholding and CAM data.</td></tr>
+            </tbody>
+          </table>
+
+          <h4 id="training-section" style="margin-top: 2rem;">Training Credits Hours and Onsite</h4>
+          <p><strong>Training Credits:</strong> SC-Train-Credit<br>Applicable to new and existing customers when purchasing a new seat of software. Credits can be used for 1 hour of Instructor Led Remote Training or $100 towards the cost of Onsite Training.</p>
+
+          <table style="font-size: 0.75rem; margin-top: 1rem;">
+            <thead>
+              <tr><th>Product Code</th><th>Training Credit to Apply</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>SC-Mill</td><td>2</td></tr>
+              <tr><td>SC-Mill-Adv</td><td>1</td></tr>
+              <tr><td>SC-Mill-3D</td><td>2</td></tr>
+              <tr><td>SC-Mill-5Axis</td><td>2</td></tr>
+              <tr><td>SC-MTS</td><td>2</td></tr>
+            </tbody>
+          </table>
+
+          <table style="font-size: 0.75rem; margin-top: 1.5rem;">
+            <thead>
+              <tr><th>Product Code</th><th>Description</th><th>Price</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Train-2hr</td><td>SolidCAM 1-on-1 Web Based Training with a certified Instructor - One 2-hour training session. (Unused Hours Expire 12 Months from Purchase)</td><td>$350</td></tr>
+              <tr><td>Train-8hr</td><td>SolidCAM 1-on-1 Web Based Training with a certified Instructor - Four 2-hour training session. (Unused Hours Expire 12 Months from Purchase)</td><td>$1295</td></tr>
+              <tr><td>Train-Onsite</td><td>SolidCAM Onsite Training with a certified instructor. Cost per day. (Additional travel costs may apply)</td><td>$2500</td></tr>
+            </tbody>
+          </table>
+
+          <h4 id="solidworks-section" style="margin-top: 2rem;">SOLIDWORKS Product Codes</h4>
+          <p>When creating a SW-SC bundle, add to the hidden line items under SW-SC-Mill or SW-SC-Turn with both the software and maintenance for SW.</p>
+
+          <table style="font-size: 0.75rem; margin-top: 1rem;">
+            <thead>
+              <tr><th>Product/Service Name</th><th>SKU</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>SOLIDWORKS Parts</td><td>SW-P</td></tr>
+              <tr><td>SOLIDWORKS Parts Maintenance</td><td>SW-P-Maint</td></tr>
+              <tr><td>SOLIDWORKS Parts and Assemblies</td><td>SW-PA</td></tr>
+              <tr><td>SOLIDWORKS Parts And Assemblies Maintenance</td><td>SW-PA-Maint</td></tr>
+              <tr><td>SOLIDWORKS Standard</td><td>SW-Std</td></tr>
+              <tr><td>SOLIDWORKS Standard Maintenance</td><td>SW-Std-Maint</td></tr>
+              <tr><td>SOLIDWORKS Standard Networked</td><td>SW-Std-Net</td></tr>
+              <tr><td>SOLIDWORKS Standard Networked Maintenance</td><td>SW-Std-Net-Maint</td></tr>
+              <tr><td>SOLIDWORKS Professional</td><td>SW-Pro</td></tr>
+              <tr><td>SOLIDWORKS Professional Maintenance</td><td>SW-Pro-Maint</td></tr>
+              <tr><td>SOLIDWORKS Professional Networked</td><td>SW-Pro-Net</td></tr>
+              <tr><td>SOLIDWORKS Professional Networked Maintenance</td><td>SW-Pro-Net-Maint</td></tr>
+            </tbody>
+          </table>
+
+          <h4 id="postprocessor-section" style="margin-top: 2rem;">Post Processor Services</h4>
+          <p style="font-style: italic;">* Simulation is required for these configurations.</p>
+
+          <table style="font-size: 0.72rem; margin-top: 1rem;">
+            <thead>
+              <tr><th>Product/Service Name</th><th>SKU</th><th>Sales Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>3X Milling Post Processor</td><td>Post-3X</td><td>Custom Post Processor: Lead time is 4-6 Weeks from the time SolidCAM technical receives the required information from the customer.</td></tr>
+              <tr><td>3X Milling Post Processor - Derivative</td><td>Post-3X-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>4X Milling Post Processor</td><td>Post-4X</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>4X Milling Post Processor - Derivative</td><td>Post-4X-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>5X Milling Post Processor</td><td>Post-5X</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>5X Milling Post Processor - Derivative</td><td>Post-5X-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Mill-Turn 1 Channel Post Processor</td><td>Post-MT1</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Mill-Turn 1 Channel Post Processor - Derivative</td><td>Post-MT1-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Mill-Turn 2 Channel Post Processor *</td><td>Post-MT2</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Mill-Turn 2 Channel Post Processor - Derivative</td><td>Post-MT2-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Mill-Turn 3+ Channel Post Processor *</td><td>Post-MT3</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Mill-Turn 3+ Channel Post Processor - Derivative</td><td>Post-MT3-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Swiss Basic Post Processor *</td><td>Post-Swiss</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Swiss Basic Post Processor - Derivative</td><td>Post-Swiss-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Swiss Advanced Post Processor *</td><td>Post-Swiss-Adv</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Swiss Advanced Post Processor - Derivative</td><td>Post-Swiss-Adv-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Swiss 3+ Channel Post Processor *</td><td>Post-Swiss-3Ch</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Swiss 3+ Channel Post Processor - Derivative</td><td>Post-Swiss-3Ch-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Turning Post Processor</td><td>Post-Turn</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
+              <tr><td>Turning Post Processor - Derivative</td><td>Post-Turn-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
+            </tbody>
+          </table>
+
+          <table style="font-size: 0.72rem; margin-top: 1.5rem;">
+            <thead>
+              <tr><th>Machine Simulation Development</th><th>SKU</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>3X Milling Machine Simulation Development</td><td>PSim-3X</td></tr>
+              <tr><td>4X Milling Machine Simulation Development</td><td>PSim-4X</td></tr>
+              <tr><td>5X Milling Machine Simulation Development</td><td>PSim-5X</td></tr>
+              <tr><td>Mill-Turn 1 Channel Machine Simulation Development</td><td>PSim-MT1</td></tr>
+              <tr><td>Mill-Turn 2 Channel Machine Simulation Development</td><td>PSim-MT2</td></tr>
+              <tr><td>Mill-Turn 3+ Channel Machine Simulation Development</td><td>PSim-MT3</td></tr>
+              <tr><td>Swiss Basic Machine Simulation Development</td><td>PSim-Swiss</td></tr>
+              <tr><td>Swiss Advanced Machine Simulation Development</td><td>PSim-Swiss-Adv</td></tr>
+              <tr><td>Swiss 3+ Channel Machine Simulation Development</td><td>PSim-Swiss-3Ch</td></tr>
+              <tr><td>Turning Machine Simulation Development</td><td>PSim-Turn</td></tr>
+            </tbody>
+          </table>
+
+          <p style="margin-top: 1rem; font-size: 0.85rem;"><strong>Note:</strong> Swiss Basic configurations are generally limited to (up to) 6-Axes with Gang configurations. Greater than 6 Axes, Turrets and B-Axis heads are considered as advanced configurations. Please confirm with the post team when ordering for the classification of Swiss machine.</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderHalloweenOverlay() {
+  return `
+    <div class="halloween-overlay">
+    </div>
+  `;
+}
+
+function renderJumpScareOverlay() {
+  return `
+    <div class="jump-scare-overlay">
+      <img src="assets/jump-scare/scare.jpg" alt="">
+      <div class="jump-scare-refresh">Press ESC or refresh the page to continue...</div>
+    </div>
+    <audio id="jump-scare-audio" src="assets/jump-scare/scream2.mp3" preload="auto"></audio>
+  `;
+}
+
+function triggerJumpScare() {
+  const overlay = document.querySelector('.jump-scare-overlay');
+  const audio = document.getElementById('jump-scare-audio');
+  const refreshMsg = document.querySelector('.jump-scare-refresh');
+
+  if (!overlay || !audio) return;
+
+  // Show image when audio actually starts playing
+  const showImage = () => {
+    // Add small delay to account for audio output latency (from speakers)
+    setTimeout(() => {
+      overlay.classList.add('active');
+
+      // Request fullscreen
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(err => console.warn('Fullscreen failed:', err));
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+      } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+      }
+    }, 250);
+
+    audio.removeEventListener('playing', showImage);
+  };
+
+  // Listen for when audio actually starts
+  audio.addEventListener('playing', showImage);
+
+  // Start audio
+  audio.play().catch(err => {
+    console.warn('Audio play failed:', err);
+    // Fallback: show image anyway if audio fails
+    showImage();
+  });
+
+  // Show refresh message after 3 seconds
+  setTimeout(() => {
+    if (refreshMsg) {
+      refreshMsg.classList.add('active');
+    }
+  }, 3000);
+
+  // Allow ESC key to close
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      overlay.classList.remove('active');
+      if (refreshMsg) refreshMsg.classList.remove('active');
+      audio.pause();
+      audio.currentTime = 0;
+      document.removeEventListener('keydown', escHandler);
+
+      // Exit fullscreen
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+    }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+
+function initHalloweenSpiders() {
+  if (!HALLOWEEN_MODE) return;
+
+  // Check if SpiderController is available (loaded from bug-min.js)
+  if (typeof window.SpiderController === 'undefined') {
+    console.warn('SpiderController not loaded yet, retrying...');
+    setTimeout(initHalloweenSpiders, 100);
+    return;
+  }
+
+  // Initialize crawling spiders with proper sprite settings
+  new window.SpiderController({
+    minBugs: 3,
+    maxBugs: 8,
+    minSpeed: 6,
+    maxSpeed: 13,
+    mouseOver: 'random',
+    canDie: true,
+    canFly: false, // Spiders don't fly
+    minDelay: 200,
+    maxDelay: 3000,
+    imageSprite: 'assets/Auz-Bug-8eac7b7/spider-sprite.png',
+    bugWidth: 69,
+    bugHeight: 90,
+    num_frames: 7,
+    zoom: 6
+  });
+}
+
+function initHalloweenFlies() {
+  if (!HALLOWEEN_MODE) return;
+
+  // Check if BugController is available (loaded from bug-min.js)
+  if (typeof window.BugController === 'undefined') {
+    console.warn('BugController not loaded yet, retrying...');
+    setTimeout(initHalloweenFlies, 100);
+    return;
+  }
+
+  // Initialize flying bugs with proper sprite settings
+  new window.BugController({
+    minBugs: 5,
+    maxBugs: 15,
+    minSpeed: 5,
+    maxSpeed: 10,
+    mouseOver: 'random',
+    canDie: true,
+    canFly: true,
+    minDelay: 500,
+    maxDelay: 10000,
+    imageSprite: 'assets/Auz-Bug-8eac7b7/fly-sprite.png',
+    bugWidth: 13,
+    bugHeight: 14,
+    num_frames: 5,
+    zoom: 10
+  });
+}
+
 function renderPackageRow(pkg) {
   const safeCode = escapeHtml(pkg.code);
   const safeCodeAttr = escapeAttr(pkg.code);
@@ -659,6 +1137,17 @@ function handleRootClick(event, root) {
   }
   if (!target) return;
 
+  // Check if clicking "Happy Halloween Darryl!!" in panel items
+  if (HALLOWEEN_MODE && target.tagName === 'CODE') {
+    const text = target.textContent?.trim();
+    if (text === 'Happy Halloween Darryl!!') {
+      event.preventDefault();
+      event.stopPropagation();
+      triggerJumpScare();
+      return;
+    }
+  }
+
   const control = target.closest('[data-action]');
   if (!control) return;
 
@@ -699,6 +1188,15 @@ function handleRootClick(event, root) {
       break;
     case 'close-about':
       closeAbout(root);
+      break;
+    case 'open-sales-tax':
+      openModal(root, 'sales-tax');
+      break;
+    case 'open-current-products':
+      openModal(root, 'current-products');
+      break;
+    case 'close-modal':
+      closeModal(root);
       break;
     default:
       break;
@@ -1422,6 +1920,48 @@ function closeAbout(root) {
   if (!overlay) return;
   overlay.classList.remove('open');
   overlay.setAttribute('aria-hidden', 'true');
+}
+
+function openModal(root, modalName) {
+  const overlay = root.querySelector(`[data-modal="${modalName}"]`);
+  if (!overlay) return;
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeModal(root) {
+  const overlays = root.querySelectorAll('[data-modal]');
+  overlays.forEach(overlay => {
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
+  });
+}
+
+function setupModalBackdropHandlers(root) {
+  const overlays = root.querySelectorAll('.about-overlay');
+  overlays.forEach(overlay => {
+    overlay.addEventListener('click', event => {
+      // Only close if clicking directly on the overlay (backdrop), not the modal content
+      if (event.target === overlay) {
+        // Check if this is a data-modal or the about modal
+        if (overlay.hasAttribute('data-modal')) {
+          closeModal(root);
+        } else {
+          closeAbout(root);
+        }
+      }
+    });
+  });
+}
+
+function setupModalKeyboardHandlers(root) {
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      // Close all modals (both about and data-modals)
+      closeAbout(root);
+      closeModal(root);
+    }
+  });
 }
 
 function buildMasterLabelLookup() {
