@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "archon": {
+      "type": "http",
+      "url": "http://localhost:8051/mcp"
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://context7.liam.sh/mcp"
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    }
+  }
+}
