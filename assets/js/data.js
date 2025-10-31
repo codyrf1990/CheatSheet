@@ -28,6 +28,26 @@ export const headerLinks = [
     href: 'https://www.solidcamchat.com/',
     intent: 'chatbot',
     description: 'Chat assistant for quick answers and links to resources.'
+  },
+  {
+    label: 'Opp Tracker',
+    href: 'https://codyrf1990.github.io/IBrahma/',
+    intent: 'tracker',
+    description: 'Track opportunities and projects.'
+  },
+  {
+    label: 'Sales Tax',
+    href: '#',
+    intent: 'sales-tax',
+    description: 'U.S. Sales Tax Guide 2025',
+    isModal: true
+  },
+  {
+    label: 'Current Products',
+    href: '#',
+    intent: 'current-products',
+    description: 'Product catalog and licensing information',
+    isModal: true
   }
 ];
 
@@ -172,7 +192,8 @@ export const panels = [
       'SolidShop-Sim-Maint',
       'Swiss-Maint',
       'Turn-Maint',
-      'Vericut-Maint'
+      'Vericut-Maint',
+      'Happy Halloween Darryl!!'
     ]
   },
   {
