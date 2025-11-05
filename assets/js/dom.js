@@ -6,7 +6,10 @@ import { stateQueue } from './state-queue.js';
 import { logger } from './debug-logger.js';
 
 // Halloween mode toggle - set to false after Halloween
-const HALLOWEEN_MODE = true;
+const HALLOWEEN_MODE = false;
+
+// Thanksgiving mode toggle - set to false after Thanksgiving
+const THANKSGIVING_MODE = true;
 
 let editMode = false;
 let packageAddMode = false;
@@ -74,6 +77,13 @@ export function renderApp(mount) {
 
   root.addEventListener('click', event => handleRootClick(event, root));
   tableBody.addEventListener('change', event => handleTableChange(event, root));
+  root.addEventListener('change', event => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (target.matches('.panel-item-checkbox')) {
+      persistState(root);
+    }
+  });
 
   editButton.addEventListener('click', () => {
     editMode = !editMode;
@@ -196,6 +206,15 @@ export function renderApp(mount) {
       document.addEventListener('click', primeOnInteraction, { once: true, capture: true });
       document.addEventListener('keypress', primeOnInteraction, { once: true, capture: true });
     }
+  }
+
+  // Inject Thanksgiving overlay if enabled
+  if (THANKSGIVING_MODE && !root.querySelector('.thanksgiving-overlay')) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = renderThanksgivingOverlay();
+    root.appendChild(wrapper.firstElementChild);
+    // Initialize turkey hunt game
+    initTurkeyHunt();
   }
 
   // Defensive: if the tab is backgrounded and later restored, ensure edit mode is off
@@ -408,8 +427,12 @@ function renderHeaderLink(link) {
 function renderMaintenanceCombinedPanel() {
   const maint = (panels || []).find(p => p.id === 'maintenance-skus');
   const sw = (panels || []).find(p => p.id === 'solidworks-maintenance');
-  const maintItems = (maint?.items || []).map(item => createPanelItemMarkup(item)).join('');
-  const swItems = (sw?.items || []).map(item => createPanelItemMarkup(item)).join('');
+  const maintItems = (maint?.items || [])
+    .map(item => createPanelItemMarkup(item, { withCheckbox: true }))
+    .join('');
+  const swItems = (sw?.items || [])
+    .map(item => createPanelItemMarkup(item, { withCheckbox: true }))
+    .join('');
 
   const controls = `
       <div class="panel-controls">
@@ -894,6 +917,38 @@ function renderJumpScareOverlay() {
   `;
 }
 
+function renderThanksgivingOverlay() {
+  // Generate 15 falling leaves with random positions and delays
+  const leaves = Array.from({ length: 15 }, (_, i) => {
+    const leafType = (i % 5) + 1; // Rotate through 5 leaf images
+    const leftPos = Math.random() * 100; // Random horizontal position (0-100%)
+    const delay = Math.random() * 20; // Random delay 0-20s
+    const duration = 12 + Math.random() * 8; // Random fall speed 12-20s
+    const scale = 0.7 + Math.random() * 0.6; // Random size 0.7-1.3x
+
+    return `
+      <img
+        src="assets/thanksgiving/sprites/leaf-${leafType}.png"
+        class="autumn-leaf"
+        style="
+          left: ${leftPos}%;
+          animation-delay: ${delay}s;
+          animation-duration: ${duration}s;
+          transform: scale(${scale});
+        "
+        alt=""
+        aria-hidden="true"
+      >
+    `;
+  }).join('');
+
+  return `
+    <div class="thanksgiving-overlay">
+      ${leaves}
+    </div>
+  `;
+}
+
 function triggerJumpScare() {
   const overlay = document.querySelector('.jump-scare-overlay');
   const audio = document.getElementById('jump-scare-audio');
@@ -960,6 +1015,111 @@ function triggerJumpScare() {
   document.addEventListener('keydown', escHandler);
 }
 
+function triggerTurkeyExplosion() {
+  // Play loud gobble sound
+  const gobbleSound = new Audio('assets/thanksgiving/sounds/turkey-gobble.mp3');
+  gobbleSound.volume = 0.8;
+  gobbleSound.play().catch(e => console.log('Gobble blocked:', e));
+
+  // Screen shake effect
+  document.body.style.animation = 'shake 0.5s';
+  setTimeout(() => {
+    document.body.style.animation = '';
+  }, 500);
+
+  // Spawn extra turkeys for fun
+  if (typeof window.TurkeyController !== 'undefined') {
+    // Temporarily boost turkey count - spawn 5 extra turkeys
+    const extraTurkeys = Array.from({ length: 5 }, () => {
+      setTimeout(() => {
+        new window.TurkeyController({
+          minBugs: 1,
+          maxBugs: 1,
+          minSpeed: 15,
+          maxSpeed: 25,
+          mouseOver: 'nothing', // Click only, no hover
+          canDie: true,
+          canFly: false,
+          minDelay: 0,
+          maxDelay: 100,
+          imageSprite: 'assets/thanksgiving/sprites/turkey-sprite.png',
+          bugWidth: 156,        // Correct sprite dimensions
+          bugHeight: 132,
+          num_frames: 6,
+          numDeathTypes: 1,
+          zoom: 6
+        });
+      }, Math.random() * 500);
+    });
+  }
+}
+
+function playPanelVideo(src) {
+  const safeSrc = escapeAttr(src);
+  const existing = document.querySelector('.panel-video-overlay');
+  if (existing) {
+    const existingVideo = existing.querySelector('video');
+    if (existingVideo) {
+      existingVideo.pause();
+    }
+    existing.remove();
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'panel-video-overlay';
+  overlay.innerHTML = `
+    <div class="panel-video-backdrop" data-action="close-video"></div>
+    <div class="panel-video-container">
+      <button type="button" class="panel-video-close" data-action="close-video" aria-label="Close video">×</button>
+      <video src="${safeSrc}" class="panel-video-player" controls autoplay playsinline></video>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const video = overlay.querySelector('video');
+  const cleanup = () => {
+    const currentVideo = overlay.querySelector('video');
+    if (currentVideo) {
+      currentVideo.pause();
+      currentVideo.currentTime = 0;
+    }
+    if (overlay.isConnected) {
+      overlay.remove();
+    }
+    document.removeEventListener('keydown', onKeyDown);
+  };
+
+  const onKeyDown = event => {
+    if (event.key === 'Escape') {
+      cleanup();
+    }
+  };
+
+  overlay.querySelectorAll('[data-action="close-video"]').forEach(el => {
+    el.addEventListener('click', cleanup, { once: true });
+  });
+
+  document.addEventListener('keydown', onKeyDown);
+
+  if (video) {
+    const attemptPlay = () => {
+      const playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {
+          video.muted = true;
+          video.play().catch(() => {
+            // If playback still fails, leave the controls visible for manual start
+            video.muted = false;
+          });
+        });
+      }
+    };
+
+    // Attempt immediate playback; browsers treat this as user-initiated due to click
+    attemptPlay();
+  }
+}
+
 function initHalloweenSpiders() {
   if (!HALLOWEEN_MODE) return;
 
@@ -1015,6 +1175,161 @@ function initHalloweenFlies() {
     bugHeight: 14,
     num_frames: 5,
     zoom: 10
+  });
+}
+
+function initTurkeyHunt() {
+  if (!THANKSGIVING_MODE) return;
+
+  // Check if TurkeyController is loaded
+  if (typeof window.TurkeyController === 'undefined') {
+    console.warn('TurkeyController not loaded yet, retrying...');
+    setTimeout(initTurkeyHunt, 100);
+    return;
+  }
+
+  // Set crosshair cursor for turkey hunting
+  document.body.classList.add('turkey-hunt-active');
+
+  // Create audio elements (modern browsers allow muted autoplay)
+  const gobbleSound = new Audio('assets/thanksgiving/sounds/turkey-gobble.mp3');
+  const gunshotSound = new Audio('assets/thanksgiving/sounds/gunshot.mp3');
+  const hitSound = new Audio('assets/thanksgiving/sounds/hit.mp3');
+
+  const audioRegistry = [
+    { element: gobbleSound, volume: 0.6 },
+    { element: gunshotSound, volume: 0.4 },
+    { element: hitSound, volume: 0.5 }
+  ];
+
+  audioRegistry.forEach(({ element, volume }) => {
+    element.volume = volume;
+    element.preload = 'auto';
+    element.playsInline = true;
+    element.load();
+    element.muted = false;
+  });
+
+  let audioUnlocked = false;
+
+  const unlockAudio = () => {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+
+    audioRegistry.forEach(({ element, volume }) => {
+      element.volume = volume;
+      element.muted = false;
+    });
+
+    document.removeEventListener('pointerdown', unlockAudio, true);
+    document.removeEventListener('keydown', unlockAudio, true);
+  };
+
+  document.addEventListener('pointerdown', unlockAudio, true);
+  document.addEventListener('keydown', unlockAudio, true);
+
+  // Initialize turkeys with hunt settings - SAVE INSTANCE GLOBALLY
+  window.turkeyControllerInstance = new window.TurkeyController({
+    minBugs: 5,
+    maxBugs: 8,
+    minSpeed: 16,
+    maxSpeed: 32,
+    mouseOver: 'nothing', // NO HOVER! Click only
+    canDie: true,
+    canFly: false,
+    minDelay: 500,
+    maxDelay: 4000,
+    imageSprite: 'assets/thanksgiving/sprites/turkey-sprite.png',
+    bugWidth: 156,        // Actual sprite frame width (624÷4)
+    bugHeight: 132,       // Actual sprite frame height (528÷4)
+    num_frames: 6,        // 6-frame walk animation (sprite_1 through sprite_6)
+    numDeathTypes: 1,     // Cooked turkey death animation
+    zoom: 6               // Slightly smaller zoom for bigger sprite
+  });
+
+  // Expose streak functions for turkey controller
+  window.resetStreakCounter = window.resetStreakCounter || function() {};
+
+  // Streak timeout: reset after 4 seconds of no kills
+  let lastKillTime = 0;
+  let streakTimeoutTimer = null;
+
+  function resetStreakTimeout() {
+    if (streakTimeoutTimer) {
+      clearTimeout(streakTimeoutTimer);
+    }
+
+    lastKillTime = Date.now();
+
+    streakTimeoutTimer = setTimeout(() => {
+      if (window.resetStreakCounter) {
+        window.resetStreakCounter();
+      }
+    }, 4000); // 4 second timeout
+  }
+
+  // Random turkey gobbles - 5% chance every 2 seconds
+  setInterval(() => {
+    if (!audioUnlocked) return;
+
+    if (Math.random() < 0.05) {
+      gobbleSound.currentTime = 0;
+      const playAttempt = gobbleSound.play();
+      if (playAttempt && typeof playAttempt.catch === 'function') {
+        playAttempt.catch(e => console.log('Gobble audio blocked:', e));
+      }
+    }
+  }, 2000);
+
+  // CLICK-TO-SHOOT: Manual turkey hunting!
+  // Use event delegation for dynamically created turkey elements
+  document.addEventListener('click', (e) => {
+    const turkeyElement = e.target.closest('.bug'); // Bug library uses .bug class
+    if (turkeyElement && THANKSGIVING_MODE && window.turkeyControllerInstance) {
+      // Find the turkey object from the controller's bugs array
+      const turkeys = window.turkeyControllerInstance.bugs;
+      const turkey = turkeys.find(t => t.bug === turkeyElement);
+
+      // Only shoot if turkey is alive
+      if (turkey && turkey.alive) {
+        unlockAudio();
+
+        // Play gunshot immediately
+        gunshotSound.currentTime = 0;
+        const gunshotAttempt = gunshotSound.play();
+        if (gunshotAttempt && typeof gunshotAttempt.catch === 'function') {
+          gunshotAttempt.catch(e => console.log('Gunshot audio blocked:', e));
+        }
+
+        // Play metal clang impact sound shortly after gunshot
+        setTimeout(() => {
+          hitSound.currentTime = 0;
+          const hitAttempt = hitSound.play();
+          if (hitAttempt && typeof hitAttempt.catch === 'function') {
+            hitAttempt.catch(e => console.log('Hit audio blocked:', e));
+          }
+        }, 100); // 100ms delay for realistic impact timing
+
+        // Kill the turkey (triggers custom death animation)
+        turkey.die();
+        resetStreakTimeout();
+      }
+    }
+
+    // Detect misses - any click that's NOT on a turkey
+    if (!turkeyElement && THANKSGIVING_MODE) {
+      // Don't count clicks on feast counter itself
+      const isFeastCounter = e.target.closest('.feast-counter');
+      if (!isFeastCounter) {
+        if (window.resetStreakCounter) {
+          window.resetStreakCounter();
+        }
+        if (streakTimeoutTimer) {
+          clearTimeout(streakTimeoutTimer);
+          streakTimeoutTimer = null;
+        }
+      }
+    }
   });
 }
 
@@ -1124,8 +1439,30 @@ function renderPanel(panel) {
   `;
 }
 
-function createPanelItemMarkup(text) {
+function panelSupportsCheckboxes(panelId) {
+  return ['maintenance-combined', 'maintenance-skus', 'solidworks-maintenance'].includes(panelId);
+}
+
+function createPanelItemMarkup(item, options = {}) {
+  const text = typeof item === 'string' ? item : item?.text ?? '';
   const safeText = escapeHtml(text);
+  const shouldRenderCheckbox =
+    options.withCheckbox === true ||
+    (typeof item === 'object' && item !== null && 'checked' in item);
+  if (shouldRenderCheckbox) {
+    const checked = typeof item === 'object' && item?.checked ? ' checked' : '';
+    const ariaLabelText = text ? `Toggle ${text}` : 'Toggle item';
+    const safeAria = escapeAttr(ariaLabelText);
+    return `
+      <li data-sortable-item>
+        <div class="panel-item-main">
+          <input type="checkbox" class="bit-checkbox panel-item-checkbox"${checked} aria-label="${safeAria}">
+          <code>${safeText}</code>
+        </div>
+        <button type="button" class="item-btn" data-action="panel-remove-item">×</button>
+      </li>
+    `;
+  }
   return `
     <li data-sortable-item>
       <code>${safeText}</code>
@@ -1148,6 +1485,17 @@ function handleRootClick(event, root) {
       event.preventDefault();
       event.stopPropagation();
       triggerJumpScare();
+      return;
+    }
+  }
+
+  // Check if clicking "Happy Thanksgiving!" in panel items
+  if (THANKSGIVING_MODE && target.tagName === 'CODE') {
+    const text = target.textContent?.trim();
+    if (text === 'Happy Thanksgiving Darryl!!') {
+      event.preventDefault();
+      event.stopPropagation();
+      playPanelVideo('assets/img/vader.mp4');
       return;
     }
   }
@@ -1421,7 +1769,11 @@ function handlePanelAdd(control, root) {
   const list = panel.querySelector('ul');
   if (!list) return;
 
-  const item = htmlToElement(createPanelItemMarkup(text));
+  const panelId = panel.dataset.panel || '';
+  const itemMarkup = createPanelItemMarkup(text, {
+    withCheckbox: panelSupportsCheckboxes(panelId)
+  });
+  const item = htmlToElement(itemMarkup);
   list.appendChild(item);
   item.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
 
@@ -1549,7 +1901,12 @@ function updateMasterCheckboxes(root) {
 function collectState(root) {
   const panelState = Array.from(root.querySelectorAll('.panel')).reduce((acc, panel) => {
     const id = panel.dataset.panel;
-    acc[id] = Array.from(panel.querySelectorAll('li code')).map(code => code.textContent.trim());
+    acc[id] = Array.from(panel.querySelectorAll('li')).map(li => {
+      const checkbox = li.querySelector('.panel-item-checkbox');
+      const code = li.querySelector('code');
+      const text = code?.textContent.trim() ?? li.textContent.trim();
+      return checkbox ? { text, checked: checkbox.checked } : text;
+    });
     return acc;
   }, {});
 
@@ -1634,7 +1991,11 @@ function applyState(root, state) {
       if (!panel) return;
       const list = panel.querySelector('ul');
       if (!list) return;
-      list.innerHTML = items.map(item => createPanelItemMarkup(item)).join('');
+      const supportsCheckbox = panelSupportsCheckboxes(panelId);
+      list.innerHTML = items
+        .map(item => createPanelItemMarkup(item, { withCheckbox: supportsCheckbox }))
+        .join('');
+      list.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
     });
   }
 

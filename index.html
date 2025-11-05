@@ -9,10 +9,26 @@
   <title>Packages & Maintenance Cheat Sheet</title>
     <link rel="icon" type="image/png" href="assets/img/profile-icon.png?v=20251030">
   <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/main.css?v=20251030.19">
+  <link rel="stylesheet" href="assets/css/main.css?v=20250218.11">
   <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>
 </head>
 <body>
+  <!-- Thanksgiving Feasts Counter -->
+  <div id="thanksgiving-feast-counter" class="feast-counter">
+    <div class="feast-counter-content">
+      <div class="feast-row">
+        <span class="feast-icon">🦃</span>
+        <span class="feast-label">Feasts:</span>
+        <span class="feast-count" id="feast-count">0</span>
+      </div>
+      <div class="streak-row">
+        <span class="streak-icon">🎯</span>
+        <span class="streak-label">Streak:</span>
+        <span class="streak-count" id="streak-count">0</span>
+      </div>
+    </div>
+  </div>
+
   <div id="app"></div>
 
 
@@ -82,6 +98,7 @@
   </section>
 
   <script src="assets/Auz-Bug-8eac7b7/bug-min.js"></script>
+  <script src="assets/js/turkey-controller.js?v=20250218.6"></script>
   <script type="module" src="assets/js/app.js?v=20250110.20"></script>
   <script type="module" src="assets/js/dev-cache-bust.js?v=20250110.20"></script>
 </body>

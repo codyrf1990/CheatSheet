@@ -13,6 +13,10 @@
   --shadow-lg: 0 18px 45px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 8px 25px rgba(0, 0, 0, 0.28);
   --shadow-sm: 0 3px 12px rgba(0, 0, 0, 0.18);
+  --glass-surface: rgba(16, 16, 16, 0.32);
+  --glass-surface-strong: rgba(12, 12, 12, 0.42);
+  --glass-surface-light: rgba(24, 24, 24, 0.26);
+  --glass-border: rgba(255, 255, 255, 0.22);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
@@ -33,12 +37,7 @@ body {
   margin: 0;
   font-family: var(--font-system);
   color: var(--text-primary);
-  background:
-    radial-gradient(120% 120% at 15% -20%, rgba(200, 16, 46, 0.35), transparent),
-    radial-gradient(120% 120% at 85% -20%, rgba(212, 175, 55, 0.2), transparent),
-    radial-gradient(160% 160% at 50% 120%, rgba(80, 0, 0, 0.35), transparent),
-    radial-gradient(140% 140% at 50% 110%, rgba(212, 175, 55, 0.12), transparent),
-    var(--solidcam-dark);
+  background: #000;
 }
 
 a {
@@ -65,7 +64,7 @@ a {
    align-items: center;
    gap: clamp(0.8rem, 2.5vw, 1.5rem);
    padding: clamp(0.4rem, 1vw, 0.65rem);
-  background: linear-gradient(135deg, rgba(42, 42, 42, 0.92), rgba(18, 18, 18, 0.92));
+  background: linear-gradient(135deg, rgba(42, 42, 42, 0.88), rgba(18, 18, 18, 0.82));
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 20px;
   box-shadow: 0 25px 45px rgba(0, 0, 0, 0.35);
@@ -350,7 +349,7 @@ button {
 }
 
 .main-table {
-  background: linear-gradient(135deg, rgba(40, 40, 40, 0.95), rgba(22, 22, 22, 0.95));
+  background: linear-gradient(135deg, rgba(40, 40, 40, 0.82), rgba(22, 22, 22, 0.76));
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
@@ -436,7 +435,7 @@ thead th {
   width: min(880px, 92vw);
   max-height: 80vh;
   overflow: auto;
-  background: linear-gradient(135deg, rgba(36,36,36,0.96), rgba(18,18,18,0.96));
+  background: linear-gradient(135deg, rgba(36,36,36,0.75), rgba(18,18,18,0.80));
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 16px;
   box-shadow: 0 25px 45px rgba(0,0,0,0.4);
@@ -903,7 +902,7 @@ body.edit-mode .drop-invalid.placeholder {
   flex-direction: column;
   gap: 0.44rem; /* -20% */
   padding: 0.48rem; /* -20% */
-  background: linear-gradient(135deg, rgba(36, 36, 36, 0.95), rgba(20, 20, 20, 0.9));
+  background: linear-gradient(135deg, rgba(36, 36, 36, 0.88), rgba(20, 20, 20, 0.82));
   border: 1px solid rgba(255, 255, 255, 0.055);
   border-radius: 14px;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
@@ -1001,7 +1000,7 @@ body.edit-mode .drop-invalid.placeholder {
 }
 
 .panel-mode-btn.active {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.9), rgba(150, 115, 20, 0.9));
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.82), rgba(150, 115, 20, 0.78));
   color: #1a1a1a;
   border-color: rgba(212, 175, 55, 0.55);
 }
@@ -1095,10 +1094,83 @@ body.edit-mode .drop-invalid.placeholder {
   color: #f0f0f0;
 }
 
+.panel-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex: 1;
+}
+
+.panel-item-main code {
+  flex: 1;
+  width: auto;
+}
+
+.panel-item-main .panel-item-checkbox {
+  flex-shrink: 0;
+}
+
 .panel li code:hover {
   transform: translateY(-1px);
   border-color: rgba(255, 255, 255, 0.28); /* subtle single-border emphasis */
   box-shadow: none; /* no halo */
+}
+
+.panel-video-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 6000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.panel-video-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.panel-video-container {
+  position: relative;
+  z-index: 1;
+  background: #111;
+  border-radius: 0.75rem;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  max-width: 960px;
+  width: min(90vw, 960px);
+}
+
+.panel-video-player {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #000;
+}
+
+.panel-video-close {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 2;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel-video-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #000;
 }
 
 .item-btn {
@@ -1261,10 +1333,10 @@ body.edit-mode .panel li:hover {
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    radial-gradient(120% 140% at 12% -20%, rgba(200, 16, 46, 0.18), transparent 65%),
-    radial-gradient(140% 120% at 88% -10%, rgba(212, 175, 55, 0.14), transparent 60%),
-    linear-gradient(160deg, rgba(34, 34, 34, 0.96), rgba(16, 16, 16, 0.98));
-  box-shadow: 0 32px 60px rgba(0, 0, 0, 0.45);
+    radial-gradient(120% 140% at 12% -20%, rgba(200, 16, 46, 0.16), transparent 65%),
+    radial-gradient(140% 120% at 88% -10%, rgba(212, 175, 55, 0.12), transparent 60%),
+    linear-gradient(160deg, rgba(34, 34, 34, 0.9), rgba(16, 16, 16, 0.84));
+  box-shadow: 0 28px 52px rgba(0, 0, 0, 0.36);
   backdrop-filter: blur(14px);
   overflow: hidden;
   min-height: clamp(560px, 65vh, 820px);
@@ -1276,7 +1348,7 @@ body.edit-mode .panel li:hover {
   position: absolute;
   inset: 0;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
-  opacity: 0.55;
+  opacity: 0.45;
   pointer-events: none;
 }
 
@@ -1300,7 +1372,7 @@ body.edit-mode .panel li:hover {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: linear-gradient(135deg, rgba(200, 16, 46, 0.48), rgba(200, 16, 46, 0.2));
+  background: linear-gradient(135deg, rgba(200, 16, 46, 0.32), rgba(200, 16, 46, 0.18));
   color: #fff;
   text-align: center;
   z-index: 3;
@@ -1450,7 +1522,7 @@ body.edit-mode .panel li:hover {
   padding: 0.42rem 0.9rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 92, 118, 0.22);
-  background: linear-gradient(145deg, rgba(42, 10, 14, 0.82), rgba(18, 12, 14, 0.9));
+  background: linear-gradient(145deg, rgba(42, 10, 14, 0.74), rgba(18, 12, 14, 0.84));
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
   font-size: 0.72rem;
   letter-spacing: 0.05em;
@@ -1477,7 +1549,7 @@ body.edit-mode .panel li:hover {
 
 .chatbot-provider-pill.is-active {
   border-color: rgba(255, 120, 150, 0.75);
-  background: linear-gradient(145deg, rgba(210, 24, 54, 0.92), rgba(112, 4, 24, 0.88));
+  background: linear-gradient(145deg, rgba(210, 24, 54, 0.84), rgba(112, 4, 24, 0.78));
   color: #ffe6ec;
   box-shadow: 0 12px 22px rgba(200, 26, 56, 0.22);
 }
@@ -1683,7 +1755,7 @@ body.edit-mode .panel li:hover {
   padding: clamp(1rem, 2.6vw, 1.6rem);
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(160deg, rgba(18, 18, 18, 0.92), rgba(12, 12, 12, 0.88));
+  background: linear-gradient(160deg, rgba(18, 18, 18, 0.86), rgba(12, 12, 12, 0.8));
   box-shadow: 0 24px 40px rgba(0, 0, 0, 0.45);
 }
 
@@ -1811,7 +1883,7 @@ body.edit-mode .panel li:hover {
   padding: 0.7rem 1.05rem;
   border-radius: 16px;
   border: 1px solid rgba(255, 122, 148, 0.26);
-  background: linear-gradient(150deg, rgba(30, 10, 16, 0.94), rgba(12, 6, 12, 0.88));
+  background: linear-gradient(150deg, rgba(30, 10, 16, 0.88), rgba(12, 6, 12, 0.8));
   color: #ffeef2;
   box-shadow: 0 30px 48px rgba(120, 16, 34, 0.42);
   backdrop-filter: blur(16px);
@@ -1989,7 +2061,7 @@ body.edit-mode .panel li:hover {
 .calculator-section {
   margin: 3rem auto 2.5rem;
   padding: clamp(1.5rem, 4vw, 2rem);
-  background: linear-gradient(145deg, rgba(38, 18, 18, 0.95), rgba(16, 16, 16, 0.92));
+  background: linear-gradient(145deg, rgba(38, 18, 18, 0.86), rgba(16, 16, 16, 0.8));
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 20px;
   box-shadow: 0 25px 45px rgba(0, 0, 0, 0.35);
@@ -2032,7 +2104,7 @@ body.edit-mode .panel li:hover {
   max-width: 440px;
   width: 100%;
   margin: 0 auto;
-  background: linear-gradient(135deg, rgba(26, 26, 26, 0.98), rgba(14, 14, 14, 0.98));
+  background: linear-gradient(135deg, rgba(26, 26, 26, 0.9), rgba(14, 14, 14, 0.84));
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.4);
@@ -2047,7 +2119,7 @@ body.edit-mode .panel li:hover {
 
 .calculator-display {
   grid-column: 1;
-  background: linear-gradient(135deg, var(--solidcam-dark), rgba(26, 26, 26, 0.95));
+  background: linear-gradient(135deg, var(--solidcam-dark), rgba(26, 26, 26, 0.86));
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding: 0.38rem; /* additional ~30% reduction */
   text-align: right;
@@ -2076,7 +2148,7 @@ body.edit-mode .panel li:hover {
 }
 
 .calculator-button {
-  background: linear-gradient(135deg, rgba(45, 45, 45, 0.9), rgba(35, 35, 35, 0.9));
+  background: linear-gradient(135deg, rgba(45, 45, 45, 0.82), rgba(35, 35, 35, 0.78));
   border: none;
   color: var(--text-primary);
   font-size: 1.224rem; /* +20% text size (except % overrides below) */
@@ -2291,7 +2363,7 @@ body.edit-mode .panel li:hover {
    display: flex;
    flex-direction: column;
    gap: 0.9rem;
-   background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(16, 16, 16, 0.98));
+   background: linear-gradient(135deg, rgba(30, 30, 30, 0.9), rgba(16, 16, 16, 0.84));
    border-radius: 14px;
    border: 1px solid rgba(255, 255, 255, 0.06);
    box-shadow: var(--shadow-lg);
@@ -2330,7 +2402,7 @@ body.edit-mode .panel li:hover {
    padding: 0.6rem 0.9rem;
    border-radius: var(--radius-sm);
    border: 1px solid rgba(200, 16, 46, 0.6);
-   background: linear-gradient(135deg, rgba(200,16,46,0.9), rgba(139,0,0,0.9));
+   background: rgba(200,16,46,0.28);
    color: #fff;
    font-size: 0.8rem;
    font-weight: 500;
@@ -2345,7 +2417,7 @@ body.edit-mode .panel li:hover {
 .email-template-toast--error,
 .email-template-toast--warning {
   border-color: rgba(200, 16, 46, 0.55);
-  background: linear-gradient(135deg, rgba(200,16,46,0.85), rgba(139,0,0,0.85));
+  background: rgba(200,16,46,0.3);
 }
 
 /* Inset toast positioned near footer buttons without shifting layout */
@@ -2682,7 +2754,7 @@ body.edit-mode .panel li:hover {
 .email-template-item__meta { padding-right: 4.2rem; }
 
 .email-template-preview {
-  background: linear-gradient(135deg, rgba(24, 24, 24, 0.96), rgba(12, 12, 12, 0.96));
+  background: linear-gradient(135deg, rgba(24, 24, 24, 0.88), rgba(12, 12, 12, 0.82));
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 16px;
   padding: 1rem 1.2rem;
@@ -3676,23 +3748,23 @@ textarea[data-field="body"] {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.92), rgba(212, 175, 55, 0.62));
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.82), rgba(212, 175, 55, 0.58));
   color: #1a1a1a;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
 }
 
 .chatbot-message--assistant .chatbot-message__avatar {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.9), rgba(200, 16, 46, 0.38));
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.82), rgba(200, 16, 46, 0.34));
   color: #1b1b1b;
 }
 
 .chatbot-message--user .chatbot-message__avatar {
-  background: linear-gradient(135deg, rgba(200, 16, 46, 0.88), rgba(168, 12, 36, 0.82));
+  background: linear-gradient(135deg, rgba(200, 16, 46, 0.8), rgba(168, 12, 36, 0.74));
   color: #fde7ef;
 }
 
 .chatbot-message--system .chatbot-message__avatar {
-  background: linear-gradient(135deg, rgba(59, 125, 216, 0.85), rgba(59, 125, 216, 0.58));
+  background: linear-gradient(135deg, rgba(59, 125, 216, 0.78), rgba(59, 125, 216, 0.5));
   color: #0f172a;
 }
 
@@ -3704,7 +3776,7 @@ textarea[data-field="body"] {
   padding: 1.05rem 1.25rem;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(24, 24, 24, 0.94);
+  background: rgba(24, 24, 24, 0.86);
   box-shadow: 0 20px 34px rgba(0, 0, 0, 0.38);
   transition: transform var(--transition-fast), border var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -3721,7 +3793,7 @@ textarea[data-field="body"] {
 }
 
 .chatbot-message--assistant .chatbot-message__bubble {
-  background: linear-gradient(160deg, rgba(45, 45, 45, 0.95), rgba(25, 25, 25, 0.92));
+  background: linear-gradient(160deg, rgba(45, 45, 45, 0.88), rgba(25, 25, 25, 0.82));
   border-color: rgba(212, 175, 55, 0.28);
 }
 
@@ -3732,12 +3804,12 @@ textarea[data-field="body"] {
 
 
 .chatbot-message--system .chatbot-message__bubble {
-  background: linear-gradient(160deg, rgba(46, 60, 86, 0.92), rgba(24, 32, 52, 0.9));
+  background: linear-gradient(160deg, rgba(46, 60, 86, 0.86), rgba(24, 32, 52, 0.8));
   border-color: rgba(59, 125, 216, 0.35);
 }
 
 .chatbot-message--user .chatbot-message__bubble {
-  background: linear-gradient(145deg, rgba(200, 16, 46, 0.92), rgba(168, 12, 36, 0.88));
+  background: linear-gradient(145deg, rgba(200, 16, 46, 0.86), rgba(168, 12, 36, 0.8));
   border-color: rgba(200, 16, 46, 0.5);
   color: #ffffff;
 }
@@ -4154,7 +4226,7 @@ textarea[data-field="body"] {
      font-weight: 500;
      margin-bottom: 1rem;
      border-left: 4px solid var(--solidcam-gold);
-     background: linear-gradient(135deg, rgba(35, 35, 35, 0.95), rgba(25, 25, 25, 0.9));
+     background: linear-gradient(135deg, rgba(35, 35, 35, 0.75), rgba(25, 25, 25, 0.80));
      border: 1px solid rgba(255, 255, 255, 0.08);
      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
      animation: notificationSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -4586,6 +4658,222 @@ textarea[data-field="body"] {
 
 .jump-scare-refresh.active {
   display: block;
+}
+
+/* ================================
+   THANKSGIVING THEME STYLES
+   ================================ */
+
+/* Thanksgiving overlay (sits behind all content) */
+.thanksgiving-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -9999;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Thanksgiving background image */
+.thanksgiving-overlay::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url('../img/tgiving background.png') center/cover no-repeat;
+  opacity: 1;
+  z-index: -10000;
+  pointer-events: none;
+}
+
+body.thanksgiving-active {
+  --solidcam-red: #FF7518;
+  --solidcam-gold: #FFD700;
+}
+
+/* Autumn falling leaves */
+.autumn-leaf {
+  position: absolute;
+  top: -100px;
+  width: 40px;
+  height: auto;
+  pointer-events: none;
+  animation: fallLeaf linear infinite;
+  opacity: 0.8;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Falling leaf animation with sway */
+@keyframes fallLeaf {
+  0% {
+    top: -100px;
+    transform: translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(30px) rotate(90deg);
+  }
+  50% {
+    transform: translateX(-30px) rotate(180deg);
+  }
+  75% {
+    transform: translateX(30px) rotate(270deg);
+  }
+  100% {
+    top: 100vh;
+    transform: translateX(0) rotate(360deg);
+  }
+}
+
+/* Crosshair cursor for turkey hunting */
+.turkey-hunt-active,
+.turkey-hunt-active * {
+  cursor: crosshair !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+}
+
+/* Screen shake animation for turkey explosion */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+  20%, 40%, 60%, 80% { transform: translateX(10px); }
+}
+
+/* Harvest orange button styling */
+.harvest-button {
+  background: linear-gradient(135deg, #FF7518 0%, #e66916 100%) !important;
+  border-color: #FF7518 !important;
+  box-shadow: 0 10px 25px rgba(255, 117, 24, 0.35) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.harvest-button:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 15px 35px rgba(255, 117, 24, 0.45) !important;
+  background: linear-gradient(135deg, #FF8530 0%, #f07728 100%) !important;
+}
+
+.harvest-button:active {
+  transform: translateY(0) !important;
+}
+
+/* Make turkeys clickable through overlay */
+.bug {
+  pointer-events: all !important;
+  cursor: crosshair !important;
+  overflow: hidden !important;
+  will-change: transform;
+  backface-visibility: hidden;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-user-drag: none !important;
+  /* Size constraints - JS controls background-size dynamically */
+  width: 260px !important;
+  height: 215px !important;
+  max-width: 260px !important;
+  max-height: 215px !important;
+}
+
+/* Thanksgiving mode - add warm glow to certain elements */
+/* Optional: Add autumn-themed scrollbar (webkit browsers only) */
+.thanksgiving-overlay::-webkit-scrollbar {
+  display: none;
+}
+
+/* Thanksgiving Feasts & Streak Counter */
+.feast-counter {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 10000;
+  pointer-events: none;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.feast-counter-content {
+  background: linear-gradient(135deg, #8B4513 0%, #654321 100%);
+  border: 3px solid #FFD700;
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5),
+              inset 0 2px 4px rgba(255, 215, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feast-row,
+.streak-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.feast-icon,
+.streak-icon {
+  font-size: 24px;
+  filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.4));
+}
+
+.feast-icon {
+  animation: feast-bounce 2s ease-in-out infinite;
+}
+
+.feast-label,
+.streak-label {
+  color: #FFE4B5;
+  font-size: 16px;
+  font-weight: 600;
+  text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.5px;
+  min-width: 60px;
+}
+
+.feast-count,
+.streak-count {
+  color: #FFD700;
+  font-size: 22px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+  min-width: 35px;
+  text-align: right;
+}
+
+@keyframes feast-bounce {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Pulse effect when counters increase */
+.feast-count.pulse,
+.streak-count.pulse {
+  animation: counter-pulse 0.4s ease-out;
+}
+
+@keyframes counter-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); color: #FFA500; }
+  100% { transform: scale(1); }
+}
+
+/* Streak broken shake effect */
+.streak-count.streak-broken {
+  animation: streak-shake 0.5s ease-out;
+}
+
+@keyframes streak-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); color: #ff4444; }
+  75% { transform: translateX(4px); color: #ff4444; }
 }
 
 
