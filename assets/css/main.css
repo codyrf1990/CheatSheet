@@ -4812,14 +4812,16 @@ body.thanksgiving-active {
 }
 
 .feast-row,
-.streak-row {
+.streak-row,
+.highest-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .feast-icon,
-.streak-icon {
+.streak-icon,
+.highest-icon {
   font-size: 24px;
   filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.4));
 }
@@ -4828,8 +4830,13 @@ body.thanksgiving-active {
   animation: feast-bounce 2s ease-in-out infinite;
 }
 
+.highest-icon {
+  animation: feast-bounce 3s ease-in-out infinite;
+}
+
 .feast-label,
-.streak-label {
+.streak-label,
+.highest-label {
   color: #FFE4B5;
   font-size: 16px;
   font-weight: 600;
@@ -4839,7 +4846,8 @@ body.thanksgiving-active {
 }
 
 .feast-count,
-.streak-count {
+.streak-count,
+.highest-count {
   color: #FFD700;
   font-size: 22px;
   font-weight: bold;
@@ -4855,7 +4863,8 @@ body.thanksgiving-active {
 
 /* Pulse effect when counters increase */
 .feast-count.pulse,
-.streak-count.pulse {
+.streak-count.pulse,
+.highest-count.pulse {
   animation: counter-pulse 0.4s ease-out;
 }
 
@@ -4874,6 +4883,17 @@ body.thanksgiving-active {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-4px); color: #ff4444; }
   75% { transform: translateX(4px); color: #ff4444; }
+}
+
+.highest-count.new-record {
+  animation: highest-glow 0.8s ease-out;
+  color: #ADFF2F;
+}
+
+@keyframes highest-glow {
+  0% { transform: scale(1); text-shadow: 0 0 6px rgba(173, 255, 47, 0.4); }
+  40% { transform: scale(1.25); text-shadow: 0 0 16px rgba(255, 255, 255, 0.9); }
+  100% { transform: scale(1); text-shadow: 0 0 6px rgba(173, 255, 47, 0.4); }
 }
 
 
