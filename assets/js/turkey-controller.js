@@ -15,6 +15,7 @@ var TurkeyCookedFrame = null;
 // Feast counter and streak tracking
 var FeastCounter = 0;
 var StreakCounter = 0;
+var HighestStreakCounter = 0;
 var TurkeyStatsKey = 'thanksgiving-turkey-stats';
 
 function loadTurkeyFrames(basePath, frameCount) {
@@ -100,13 +101,18 @@ function loadTurkeyStats() {
         if (saved) {
             var stats = JSON.parse(saved);
             FeastCounter = stats.feasts || 0;
-            console.log('Loaded turkey stats - Feasts:', FeastCounter);
+            StreakCounter = stats.currentStreak || 0;
+            HighestStreakCounter = stats.highestStreak || 0;
+            if (StreakCounter > HighestStreakCounter) {
+                HighestStreakCounter = StreakCounter;
+            }
+            console.log('Loaded turkey stats - Feasts:', FeastCounter, 'Current streak:', StreakCounter, 'Highest streak:', HighestStreakCounter);
             return stats;
         }
     } catch (e) {
         console.warn('Could not load turkey stats:', e);
     }
-    return { feasts: 0 };
+    return { feasts: 0, currentStreak: 0, highestStreak: 0 };
 }
 
 /**
@@ -116,10 +122,12 @@ function saveTurkeyStats() {
     try {
         var stats = {
             feasts: FeastCounter,
+            currentStreak: StreakCounter,
+            highestStreak: HighestStreakCounter,
             lastPlayed: new Date().toISOString()
         };
         localStorage.setItem(TurkeyStatsKey, JSON.stringify(stats));
-        console.log('Saved turkey stats - Feasts:', FeastCounter);
+        console.log('Saved turkey stats - Feasts:', FeastCounter, 'Current streak:', StreakCounter, 'Highest streak:', HighestStreakCounter);
     } catch (e) {
         console.warn('Could not save turkey stats:', e);
     }
@@ -162,6 +170,14 @@ function incrementStreakCounter() {
             streakEl.classList.remove('pulse');
         }, 400);
     }
+
+    var newRecord = false;
+    if (StreakCounter > HighestStreakCounter) {
+        HighestStreakCounter = StreakCounter;
+        newRecord = true;
+    }
+    updateHighestStreakDisplay({ pulse: newRecord, newRecord: newRecord });
+    saveTurkeyStats();
 }
 
 /**
@@ -183,6 +199,8 @@ function resetStreakCounter() {
             streakEl.classList.remove('streak-broken');
         }, 500);
     }
+
+    saveTurkeyStats();
 }
 
 /**
@@ -197,6 +215,42 @@ function updateCounterDisplays() {
     var streakEl = document.getElementById('streak-count');
     if (streakEl) {
         streakEl.textContent = StreakCounter;
+    }
+
+    updateHighestStreakDisplay({ resetHighlight: true });
+}
+
+function updateHighestStreakDisplay(options) {
+    var bestEl = document.getElementById('highest-streak-count');
+    if (!bestEl) return;
+
+    bestEl.textContent = HighestStreakCounter;
+
+    var shouldPulse = options && options.pulse;
+    var isNewRecord = options && options.newRecord;
+
+    if (shouldPulse) {
+        bestEl.classList.remove('pulse');
+        void bestEl.offsetWidth;
+        bestEl.classList.add('pulse');
+        setTimeout(function() {
+            bestEl.classList.remove('pulse');
+        }, 400);
+    } else {
+        bestEl.classList.remove('pulse');
+    }
+
+    if (options && options.resetHighlight) {
+        bestEl.classList.remove('new-record');
+    }
+
+    if (isNewRecord) {
+        bestEl.classList.remove('new-record');
+        void bestEl.offsetWidth;
+        bestEl.classList.add('new-record');
+        setTimeout(function() {
+            bestEl.classList.remove('new-record');
+        }, 800);
     }
 }
 
