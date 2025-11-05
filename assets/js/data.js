@@ -193,7 +193,7 @@ export const panels = [
       'Swiss-Maint',
       'Turn-Maint',
       'Vericut-Maint',
-      'Happy Halloween Darryl!!'
+      'Happy Thanksgiving Darryl!!'
     ]
   },
   {

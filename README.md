@@ -2,12 +2,13 @@
 
 Interactive reference for the SolidCAM team that combines the package matrix, maintenance lookups, and a built-in comms toolkit. Everything runs client-side – open `index.html` in any modern browser and you’re ready to work offline.
 
-### What’s included
+### What's included
 
 - **Package Bits table** – toggle master packages and individual bits, add custom entries, drag to re-order, and copy codes with a click. State persists locally per browser.
 - **Right-side panels** – quick lists for Standalone Modules, Maintenance SKUs, and SolidWorks Maintenance with the same copy and edit affordances.
 - **Calculator card** – standard operations, +/- toggle, delete, percent, and a bank of quick percentage buttons (5–30%). Layout: equals is a tall key directly under `+` (spans two rows); the quick % buttons sit on the bottom row beneath `+/−`, `0`, and `.`. After pressing `=` the next number starts a fresh calculation; choosing an operator continues from the result.
-- **Email Templates card** – searchable template library with placeholder personalization, copy buttons, “Launch in Outlook” (mailto) handoff, and a full manage mode to add/edit/clone/delete/reorder templates. Defaults can be restored at any time.
+- **Email Templates card** – searchable template library with placeholder personalization, copy buttons, "Launch in Outlook" (mailto) handoff, and a full manage mode to add/edit/clone/delete/reorder templates. Defaults can be restored at any time.
+- **Halloween Theme** (toggle via `HALLOWEEN_MODE` in `dom.js`) – seasonal overlay with animated spiders (3-8), flying bugs (5-15), skull background, and a hidden easter egg triggered by clicking "Happy Thanksgiving Darryl!!" in Maintenance SKUs (plays the Vader clip when Thanksgiving mode is active).
 
 ### Getting started
 
@@ -62,6 +63,23 @@ See `docs/PHASE_3_TESTING_COMPLETE.md` for the latest regression notes.
 - Keep additions modular under `assets/js/` (follow the existing module pattern).
 - Use `email-templates.js` for template data/logic and `calculator.js` for calculator behavior.
 - When updating UI copy, mirror the information in both the README and the in-app “About” overlay (`renderAboutOverlay` in `dom.js`).
+
+### Halloween Theme Implementation
+
+**Toggle:** Set `HALLOWEEN_MODE = true` (line 9 in `assets/js/dom.js`)
+
+**Components:**
+- **Background:** Skull wallpaper overlay at 20% opacity (`assets/css/main.css` lines 4543-4552)
+- **Animated spiders:** 3-8 crawling spiders using `SpiderController` from `assets/Auz-Bug-8eac7b7/bug-min.js`
+- **Flying bugs:** 5-15 flies using `BugController` from same library
+- **Jump scare:** Click "Happy Thanksgiving Darryl!!" in Maintenance SKUs to trigger the seasonal Easter egg (Vader clip for Thanksgiving mode)
+- **Audio priming:** Loads on first user interaction to fix GitHub Pages autoplay restrictions
+
+**Files modified:**
+- `assets/js/dom.js` - Halloween initialization functions (lines 851-1012), jump scare logic (lines 893-957), audio priming (lines 172-198)
+- `assets/css/main.css` - Background overlay and jump scare styling (lines 4531-4578)
+- `assets/js/data.js` - Added "Happy Thanksgiving Darryl!!" easter egg (line 176)
+- `assets/jump-scare/` - Scare image and audio assets
 
 ### Support
 
