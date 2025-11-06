@@ -2041,65 +2041,38 @@ function applyState(root, state) {
   // CRITICAL FIX: Reset to default state before applying
   // This prevents old company's data from remaining when switching to empty state
 
-  // For panels: Two strategies depending on panel type
-  // 1. Maintenance panels with default items: Just uncheck checkboxes (preserve defaults)
-  // 2. User-editable panels: Clear completely, will rebuild from state
-  root.querySelectorAll('.panel').forEach(panel => {
-    const panelId = panel.dataset.panel;
-    const isMaintenance = panelId === 'maintenance-combined';
-
-    if (isMaintenance) {
-      // Maintenance panels: Keep items, just uncheck them
-      panel.querySelectorAll('.panel-item-checkbox').forEach(cb => {
-        cb.checked = false;
-      });
-    } else {
-      // User-editable panels: Clear completely (will rebuild from state)
-      const list = panel.querySelector('ul');
-      if (list) {
-        list.innerHTML = '';
-      }
-    }
+  // Clear ALL editable panels - rebuild from state only (no fallbacks)
+  root.querySelectorAll('.panel[data-panel-editable="true"]').forEach(panel => {
+    panel.querySelectorAll('ul').forEach(list => {
+      list.innerHTML = '';
+    });
   });
 
-  // For packages: Don't delete checkboxes, just uncheck everything first
-  // Then we'll check only what's in the state
+  // Uncheck all package checkboxes (don't delete them)
   root.querySelectorAll('tbody tr').forEach(row => {
-    // Uncheck all loose bit checkboxes
-    row.querySelectorAll('ul.bits .bit-checkbox').forEach(cb => {
-      cb.checked = false;
-    });
-
-    // Uncheck all master checkboxes
+    row.querySelectorAll('ul.bits .bit-checkbox').forEach(cb => cb.checked = false);
     row.querySelectorAll('.master-checkbox').forEach(cb => {
       cb.checked = false;
       cb.indeterminate = false;
     });
-
-    // Uncheck all sub-bit checkboxes
-    row.querySelectorAll('.sub-checkbox').forEach(cb => {
-      cb.checked = false;
-    });
+    row.querySelectorAll('.sub-checkbox').forEach(cb => cb.checked = false);
   });
 
+  // Rebuild all panels from state
   if (state.panels) {
     Object.entries(state.panels).forEach(([panelId, items]) => {
-      // Special case: maintenance-skus and solidworks-maintenance live inside maintenance-combined panel
       if (panelId === 'maintenance-skus' || panelId === 'solidworks-maintenance') {
+        // Maintenance panels: two lists inside one panel
         const combinedPanel = root.querySelector('.panel[data-panel="maintenance-combined"]');
         if (!combinedPanel) return;
-
-        // Find the specific list by its data-sortable-group attribute
         const list = combinedPanel.querySelector(`[data-sortable-group="${escapeSelector(panelId)}"]`);
         if (!list) return;
-
-        const supportsCheckbox = panelSupportsCheckboxes(panelId);
         list.innerHTML = items
-          .map(item => createPanelItemMarkup(item, { withCheckbox: supportsCheckbox }))
+          .map(item => createPanelItemMarkup(item, { withCheckbox: true }))
           .join('');
         list.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
       } else {
-        // Normal panels: single list
+        // Other editable panels: single list
         const panel = root.querySelector(`.panel[data-panel="${escapeSelector(panelId)}"]`);
         if (!panel) return;
         const list = panel.querySelector('ul');
