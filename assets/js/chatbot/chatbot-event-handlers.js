@@ -1,5 +1,4 @@
 import {
-  FEATURE_TOGGLES,
   MAX_EFFECTIVE_MESSAGES,
   MIN_REQUIRED_MESSAGE_CAPACITY,
   MODE_DEFS,
@@ -23,8 +22,6 @@ export function createChatbotEventHandlers({
   messageArchive,
   helpers
 }) {
-  const featureToggles = helpers?.featureToggles || FEATURE_TOGGLES;
-
   const getSettings = helpers.getSettings;
   const updateSettingsSafe = helpers.updateSettingsSafe;
   const setSending = helpers.setSending;
@@ -61,13 +58,13 @@ export function createChatbotEventHandlers({
   const isSidebarName = helpers.isSidebarName;
 
   function isSending() {
-    return featureToggles.USE_STATE_MANAGER && stateManager
+    return stateManager
       ? stateManager.sending
       : state.sending;
   }
 
   function ensureActiveConversation(mode = state.activeMode) {
-    if (featureToggles.USE_CONVERSATION_MANAGER && conversationManager) {
+    if (conversationManager) {
       return conversationManager.ensureActiveConversation(mode);
     }
     let conversation = findConversation(state, state.activeConversationId);
@@ -87,7 +84,7 @@ export function createChatbotEventHandlers({
   }
 
   function computeCapacity(conversation) {
-    if (featureToggles.USE_CONVERSATION_MANAGER && conversationManager) {
+    if (conversationManager) {
       return conversationManager.computeCapacity(conversation);
     }
     const effectiveCount = messageArchive.getEffectiveCount(
@@ -104,7 +101,7 @@ export function createChatbotEventHandlers({
   }
 
   async function appendMessage(conversation, message, options = {}) {
-    if (featureToggles.USE_CONVERSATION_MANAGER && conversationManager) {
+    if (conversationManager) {
       return conversationManager.appendMessage(conversation, message, options);
     }
     const activeMessages = Array.isArray(conversation.messages)
@@ -136,7 +133,7 @@ export function createChatbotEventHandlers({
   }
 
   function createMessage(role, content = '', overrides = {}) {
-    if (featureToggles.USE_CONVERSATION_MANAGER && conversationManager) {
+    if (conversationManager) {
       return conversationManager.createMessage(role, content, overrides);
     }
     return {
@@ -210,7 +207,7 @@ export function createChatbotEventHandlers({
 
     ui.appendMessage(userMessage);
     ui.clearInput();
-    if (!(featureToggles.USE_CONVERSATION_MANAGER && conversationManager)) {
+    if (!(conversationManager)) {
       persistConversations();
       refreshConversationList();
     }
@@ -223,7 +220,7 @@ export function createChatbotEventHandlers({
     let ragResults = [];
     let shouldDisplayReferences = conversation.mode === MODE_PACKAGE;
 
-    if (featureToggles.USE_MODE_MANAGER && modeManager) {
+    if (modeManager) {
       const contextData = await modeManager.buildContextForSend({
         mode: state.activeMode,
         text,
@@ -292,7 +289,7 @@ export function createChatbotEventHandlers({
         const displayReferences = shouldDisplayReferences ? buildReferences(rawReferences) : [];
         setLastRagResults(rawReferences);
 
-        if (featureToggles.USE_CONVERSATION_MANAGER && conversationManager) {
+        if (conversationManager) {
           conversationManager.updateMessage(conversation, assistantMessage.id, {
             content: assistantMessage.content,
             references: displayReferences,
@@ -344,7 +341,7 @@ export function createChatbotEventHandlers({
         assistantMessage.content = message;
         assistantMessage.error = true;
 
-        if (featureToggles.USE_CONVERSATION_MANAGER && conversationManager) {
+        if (conversationManager) {
           conversationManager.updateMessage(conversation, assistantMessage.id, {
             content: assistantMessage.content,
             error: true
@@ -382,7 +379,7 @@ export function createChatbotEventHandlers({
 
   function handleNewConversation() {
     let conversation;
-    if (featureToggles.USE_CONVERSATION_MANAGER && conversationManager) {
+    if (conversationManager) {
       conversation = conversationManager.createNewConversation(state.activeMode);
     } else {
       conversation = createConversation({ mode: state.activeMode });
@@ -409,7 +406,7 @@ export function createChatbotEventHandlers({
 
   function handleSelectConversation(conversationId) {
     if (!conversationId) return;
-    if (featureToggles.USE_CONVERSATION_MANAGER && conversationManager) {
+    if (conversationManager) {
       const conversation = conversationManager.findConversation(conversationId);
       if (!conversation) return;
       if (conversation.mode !== state.activeMode) {
@@ -499,7 +496,7 @@ export function createChatbotEventHandlers({
     }
 
     const previousMode = state.activeMode;
-    if (featureToggles.USE_MODE_MANAGER && modeManager) {
+    if (modeManager) {
       const activation = modeManager.activate(nextMode);
       state.contextSnapshot = activation.snapshot || null;
     } else if (previousMode === MODE_PACKAGE) {
@@ -521,7 +518,7 @@ export function createChatbotEventHandlers({
     }
     state.activeConversationId = conversation ? conversation.id : null;
 
-    if (featureToggles.USE_MODE_MANAGER && modeManager) {
+    if (modeManager) {
       if (nextMode !== MODE_PACKAGE) {
         state.contextSnapshot = null;
       }
@@ -622,7 +619,7 @@ export function createChatbotEventHandlers({
     const apiTargetId = isSupportedProvider(targetProvider) ? targetProvider : providerId;
 
     if (typeof apiKey === 'string') {
-      if (featureToggles.USE_STATE_MANAGER && stateManager) {
+      if (stateManager) {
         stateManager.setApiKey(apiTargetId, apiKey, setEncryptedApiKey);
       } else {
         setEncryptedApiKey(settings, apiTargetId, apiKey);
@@ -662,7 +659,7 @@ export function createChatbotEventHandlers({
         }
       });
       if (changed) {
-        if (featureToggles.USE_STATE_MANAGER && stateManager) {
+        if (stateManager) {
           stateManager.prompts = { ...state.prompts };
         } else {
         savePrompts(state.prompts);
@@ -672,7 +669,7 @@ export function createChatbotEventHandlers({
     }
 
     if (typeof showDebugPanel === 'boolean') {
-      if (featureToggles.USE_STATE_MANAGER && stateManager) {
+      if (stateManager) {
         stateManager.setDebugPanel(showDebugPanel);
       } else {
         settings.showDebugPanel = showDebugPanel;
@@ -681,7 +678,7 @@ export function createChatbotEventHandlers({
       ui.setDebugVisibility(showDebugPanel);
     }
 
-    if (!(featureToggles.USE_STATE_MANAGER && stateManager)) {
+    if (!(stateManager)) {
       saveSettings(settings);
     } else {
       stateManager.updateSettings({
@@ -713,7 +710,7 @@ export function createChatbotEventHandlers({
     if (!isSupportedProvider(targetProvider)) {
       targetProvider = getDefaultProviderId();
     }
-    if (featureToggles.USE_STATE_MANAGER && stateManager) {
+    if (stateManager) {
       stateManager.setApiKey(targetProvider, '', setEncryptedApiKey);
     } else {
       setEncryptedApiKey(settings, targetProvider, '');
@@ -733,7 +730,7 @@ export function createChatbotEventHandlers({
     if (!isSidebarName(name)) {
       return;
     }
-    if (featureToggles.USE_STATE_MANAGER && stateManager) {
+    if (stateManager) {
       stateManager.setSidebarWidth(name, width);
       ui.setSidebarWidths(stateManager.settings.sidebarWidths);
       return;
@@ -767,7 +764,7 @@ export function createChatbotEventHandlers({
     if (!normalized) return;
     const defaults = ensurePrompts(defaultPrompts);
     state.prompts[normalized] = { ...defaults[normalized] };
-    if (featureToggles.USE_STATE_MANAGER && stateManager) {
+    if (stateManager) {
       stateManager.prompts = { ...state.prompts };
     } else {
       savePrompts(state.prompts);
@@ -785,7 +782,7 @@ export function createChatbotEventHandlers({
     if (settings.showDebugPanel === next) {
       return;
     }
-    if (featureToggles.USE_STATE_MANAGER && stateManager) {
+    if (stateManager) {
       stateManager.setDebugPanel(next);
     } else {
       settings.showDebugPanel = next;

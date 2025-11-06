@@ -5,7 +5,6 @@ import { ChatbotStateManager } from '../assets/js/chatbot/chatbot-state-manager.
 import {
   MODE_GENERAL,
   MODE_PACKAGE,
-  FEATURE_TOGGLES,
   MAX_EFFECTIVE_MESSAGES
 } from '../assets/js/chatbot/chatbot-constants.js';
 
@@ -447,8 +446,7 @@ console.log(
   'chatbotTestSummary',
   JSON.stringify({
     total: results.length,
-    failures: failed,
-    featureToggles: FEATURE_TOGGLES
+    failures: failed
   })
 );
 
