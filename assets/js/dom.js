@@ -2038,20 +2038,32 @@ function determineChangeType(root) {
 export { persistState };
 
 function applyState(root, state) {
-  // CRITICAL FIX: Clear all existing content before applying new state
-  // This prevents old company's data from remaining visible when switching to empty state
+  // CRITICAL FIX: Reset to default state before applying
+  // This prevents old company's data from remaining when switching to empty state
 
-  // Clear all panel lists
+  // Clear all panel lists (these are added by user, so safe to clear completely)
   root.querySelectorAll('.panel ul').forEach(list => {
     list.innerHTML = '';
   });
 
-  // Clear all package bits (loose bits and groups)
-  root.querySelectorAll('tbody tr ul.bits').forEach(list => {
-    list.innerHTML = '';
-  });
-  root.querySelectorAll('tbody tr .group-column').forEach(col => {
-    col.remove();
+  // For packages: Don't delete checkboxes, just uncheck everything first
+  // Then we'll check only what's in the state
+  root.querySelectorAll('tbody tr').forEach(row => {
+    // Uncheck all loose bit checkboxes
+    row.querySelectorAll('ul.bits .bit-checkbox').forEach(cb => {
+      cb.checked = false;
+    });
+
+    // Uncheck all master checkboxes
+    row.querySelectorAll('.master-checkbox').forEach(cb => {
+      cb.checked = false;
+      cb.indeterminate = false;
+    });
+
+    // Uncheck all sub-bit checkboxes
+    row.querySelectorAll('.sub-checkbox').forEach(cb => {
+      cb.checked = false;
+    });
   });
 
   if (state.panels) {
@@ -2090,27 +2102,62 @@ function applyState(root, state) {
       const row = root.querySelector(`tr[data-package="${escapeSelector(pkgCode)}"]`);
       if (!row) return;
 
-      const scope = getPackageScope(pkgCode);
-      const bitsList = row.querySelector('ul.bits');
-      if (bitsList && Array.isArray(pkgState.bits)) {
-        bitsList.innerHTML = pkgState.bits.map(bit => looseBitMarkup(bit, scope)).join('');
+      // Apply loose bit states (check the appropriate checkboxes)
+      if (Array.isArray(pkgState.bits)) {
+        pkgState.bits.forEach(bit => {
+          const bitText = typeof bit === 'string' ? bit : bit.text;
+          const bitChecked = typeof bit === 'string' ? false : (bit.checked ?? false);
+
+          // Find the checkbox for this bit by matching the text
+          const bitItems = row.querySelectorAll('ul.bits li');
+          for (const item of bitItems) {
+            const span = item.querySelector('span');
+            if (span && span.textContent.trim() === bitText) {
+              const checkbox = item.querySelector('.bit-checkbox');
+              if (checkbox) {
+                checkbox.checked = bitChecked;
+              }
+              break;
+            }
+          }
+        });
       }
 
-      const layout = row.querySelector('.bits-layout');
-      if (!layout) return;
+      // Apply group states (master bits)
+      if (Array.isArray(pkgState.groups)) {
+        pkgState.groups.forEach(group => {
+          const masterId = group.masterId;
+          const masterCheckbox = row.querySelector(`.master-checkbox[data-master="${escapeSelector(masterId)}"]`);
 
-      const hasGroups = Array.isArray(pkgState.groups) && pkgState.groups.length > 0;
-      let groupColumn = layout.querySelector('.group-column');
+          if (masterCheckbox) {
+            masterCheckbox.checked = group.checked ?? false;
+            masterCheckbox.indeterminate = group.indeterminate ?? false;
 
-      if (hasGroups) {
-        if (!groupColumn) {
-          groupColumn = document.createElement('div');
-          groupColumn.className = 'group-column';
-          layout.insertAdjacentElement('afterbegin', groupColumn);
-        }
-        groupColumn.innerHTML = pkgState.groups.map(group => masterBitMarkup(group, scope)).join('');
-      } else if (groupColumn) {
-        groupColumn.remove();
+            // Apply sub-bit states
+            if (Array.isArray(group.items)) {
+              group.items.forEach(subBit => {
+                const subText = typeof subBit === 'string' ? subBit : subBit.text;
+                const subChecked = typeof subBit === 'string' ? false : (subBit.checked ?? false);
+
+                // Find the sub-bit checkbox
+                const masterBit = masterCheckbox.closest('.master-bit');
+                if (masterBit) {
+                  const subItems = masterBit.querySelectorAll('.sub-bits li');
+                  for (const item of subItems) {
+                    const span = item.querySelector('span');
+                    if (span && span.textContent.trim() === subText) {
+                      const checkbox = item.querySelector('.sub-checkbox');
+                      if (checkbox) {
+                        checkbox.checked = subChecked;
+                      }
+                      break;
+                    }
+                  }
+                }
+              });
+            }
+          }
+        });
       }
     });
   }
