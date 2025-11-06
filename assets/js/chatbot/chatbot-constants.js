@@ -29,19 +29,6 @@ export const MODE_LIST = [MODE_PACKAGE, MODE_GENERAL];
 export const MAX_EFFECTIVE_MESSAGES = 1000;
 export const MIN_REQUIRED_MESSAGE_CAPACITY = 2;
 
-/**
- * Feature flags remain in the codebase for quick rollback,
- * but Phase 3 shipped with all new managers enabled. The object
- * is frozen to prevent runtime mutation – update documentation
- * before modifying these defaults.
- */
-export const FEATURE_TOGGLES = Object.freeze({
-  USE_MODE_MANAGER: true,
-  USE_CONVERSATION_MANAGER: true,
-  USE_STATE_MANAGER: true,
-  USE_EVENT_HANDLERS: true
-});
-
 export function sanitizeMode(mode) {
   return mode === MODE_GENERAL ? MODE_GENERAL : MODE_PACKAGE;
 }

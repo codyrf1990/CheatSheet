@@ -8,7 +8,6 @@ import { ChatbotModeManager } from './chatbot-mode-manager.js';
 import { createChatbotEventHandlers } from './chatbot-event-handlers.js';
 import { ChatbotStateManager } from './chatbot-state-manager.js';
 import {
-  FEATURE_TOGGLES,
   MODE_DEFS,
   MODE_GENERAL,
   MODE_LIST,
@@ -56,7 +55,7 @@ export function initializeChatbot() {
     tokensPerMinute: 20,
     burstSize: 3,
     onLimiterUpdate: status => {
-      if (FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager) {
+      if (stateManager) {
         stateManager.setRateLimitStatus(status);
       } else {
         state.rateLimitStatus = status;
@@ -72,13 +71,11 @@ export function initializeChatbot() {
     console.warn('[Chatbot] Message archive initialization failed.', error);
   });
 
-  modeManager = FEATURE_TOGGLES.USE_MODE_MANAGER
-    ? new ChatbotModeManager({
-        contextProcessor,
-        ragEngine,
-        buildConversationReferences
-      })
-    : null;
+  modeManager = new ChatbotModeManager({
+    contextProcessor,
+    ragEngine,
+    buildConversationReferences
+  });
 
   const state = {
     prompts: ensurePrompts(loadPrompts()),
@@ -94,34 +91,30 @@ export function initializeChatbot() {
     rateLimitStatus: null
   };
 
-  conversationManager = FEATURE_TOGGLES.USE_CONVERSATION_MANAGER
-    ? new ChatbotConversationManager({
-        state,
-        messageArchive,
-        persistConversations,
-        refreshConversationList,
-        persistSettings,
-        ensureConversationTitle,
-        createConversation,
-        generateMessageId
-      })
-    : null;
+  conversationManager = new ChatbotConversationManager({
+    state,
+    messageArchive,
+    persistConversations,
+    refreshConversationList,
+    persistSettings,
+    ensureConversationTitle,
+    createConversation,
+    generateMessageId
+  });
 
-  stateManager = FEATURE_TOGGLES.USE_STATE_MANAGER
-    ? new ChatbotStateManager({
-        state,
-        saveSettings,
-        savePrompts,
-        persistConversations,
-        updateDebugPanel
-      })
-    : null;
+  stateManager = new ChatbotStateManager({
+    state,
+    saveSettings,
+    savePrompts,
+    persistConversations,
+    updateDebugPanel
+  });
 
   const getSettings = () =>
-    FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager ? stateManager.settings : state.settings;
+    stateManager ? stateManager.settings : state.settings;
 
   const updateSettingsSafe = partial => {
-    if (FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager) {
+    if (stateManager) {
       stateManager.updateSettings(partial);
     } else {
       persistSettings(partial);
@@ -129,7 +122,7 @@ export function initializeChatbot() {
   };
 
   const setSending = flag => {
-    if (FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager) {
+    if (stateManager) {
       stateManager.sending = flag;
     } else {
       state.sending = Boolean(flag);
@@ -137,7 +130,7 @@ export function initializeChatbot() {
   };
 
   const setLastRagResults = results => {
-    if (FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager) {
+    if (stateManager) {
       stateManager.lastRagResults = Array.isArray(results) ? results : [];
     } else {
       state.lastRagResults = Array.isArray(results) ? results : [];
@@ -145,11 +138,11 @@ export function initializeChatbot() {
   };
 
   const getLastRagResults = () =>
-    FEATURE_TOGGLES.USE_STATE_MANAGER && stateManager
+    stateManager
       ? stateManager.lastRagResults
       : state.lastRagResults;
 
-  if (conversationManager && FEATURE_TOGGLES.USE_CONVERSATION_MANAGER) {
+  if (conversationManager) {
     conversationManager.persistSettings = updateSettingsSafe;
   }
 
@@ -203,7 +196,6 @@ export function initializeChatbot() {
     stateManager,
     messageArchive,
     helpers: {
-      featureToggles: FEATURE_TOGGLES,
       getSettings,
       updateSettingsSafe,
       setSending,
@@ -260,7 +252,7 @@ export function initializeChatbot() {
     if (state.activeMode !== MODE_PACKAGE) {
       return;
     }
-    if (FEATURE_TOGGLES.USE_MODE_MANAGER && modeManager) {
+    if (modeManager) {
       modeManager.updateSnapshot(snapshot);
     }
     state.contextSnapshot = snapshot || null;
@@ -275,7 +267,7 @@ export function initializeChatbot() {
   };
 
   contextProcessor.onUpdate('snapshot', handleSnapshot);
-  if (FEATURE_TOGGLES.USE_MODE_MANAGER && modeManager) {
+  if (modeManager) {
     const activation = modeManager.activate(state.activeMode);
     state.contextSnapshot = activation.snapshot || null;
   } else if (state.activeMode === MODE_PACKAGE) {
@@ -299,18 +291,14 @@ export function initializeChatbot() {
       }
     }
 
-    if (FEATURE_TOGGLES.USE_MODE_MANAGER && modeManager) {
+    if (modeManager) {
       modeManager.cleanup();
       modeManager = null;
     } else {
       contextProcessor.stop();
     }
-    if (FEATURE_TOGGLES.USE_CONVERSATION_MANAGER) {
-      conversationManager = null;
-    }
-    if (FEATURE_TOGGLES.USE_STATE_MANAGER) {
-      stateManager = null;
-    }
+    conversationManager = null;
+    stateManager = null;
     contextProcessor.removeListener('snapshot');
 
     if (ui && typeof ui.teardown === 'function') {

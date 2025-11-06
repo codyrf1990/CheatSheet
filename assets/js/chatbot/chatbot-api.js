@@ -352,24 +352,9 @@ export function getProviderCatalog() {
   }));
 }
 
-export function getProviderDefaultModel(providerId) {
-  const provider = PROVIDERS[providerId] || PROVIDERS[DEFAULT_PROVIDER_ID];
-  return resolveModel(provider);
-}
-
 export function getProviderLabel(providerId) {
   const provider = PROVIDERS[providerId] || null;
   return provider?.label || providerId || 'Provider';
-}
-
-export function getProviderModelOptions(providerId) {
-  const provider = PROVIDERS[providerId] || null;
-  if (!provider) return [];
-  return provider.models.map(model => ({ ...model }));
-}
-
-export function getSupportedProviderIds() {
-  return Object.keys(PROVIDERS);
 }
 
 function composeMessages({ messages = [], prompt, context, ragResults }) {
