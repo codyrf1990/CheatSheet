@@ -2041,13 +2041,25 @@ function applyState(root, state) {
   // CRITICAL FIX: Reset to default state before applying
   // This prevents old company's data from remaining when switching to empty state
 
-  // For panels: Uncheck any checkboxes but DON'T clear user-added items
-  // Maintenance panels have default items that should always be visible
-  root.querySelectorAll('.panel ul').forEach(list => {
-    // Uncheck all panel item checkboxes (maintenance SKUs)
-    list.querySelectorAll('.panel-item-checkbox').forEach(cb => {
-      cb.checked = false;
-    });
+  // For panels: Two strategies depending on panel type
+  // 1. Maintenance panels with default items: Just uncheck checkboxes (preserve defaults)
+  // 2. User-editable panels: Clear completely, will rebuild from state
+  root.querySelectorAll('.panel').forEach(panel => {
+    const panelId = panel.dataset.panel;
+    const isMaintenance = panelId === 'maintenance-combined';
+
+    if (isMaintenance) {
+      // Maintenance panels: Keep items, just uncheck them
+      panel.querySelectorAll('.panel-item-checkbox').forEach(cb => {
+        cb.checked = false;
+      });
+    } else {
+      // User-editable panels: Clear completely (will rebuild from state)
+      const list = panel.querySelector('ul');
+      if (list) {
+        list.innerHTML = '';
+      }
+    }
   });
 
   // For packages: Don't delete checkboxes, just uncheck everything first
