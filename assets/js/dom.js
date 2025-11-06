@@ -6,9 +6,6 @@ import { stateQueue } from './state-queue.js';
 import { logger } from './debug-logger.js';
 import { PageSystem } from './page-system.js';
 
-// Halloween mode toggle - set to false after Halloween
-const HALLOWEEN_MODE = false;
-
 // Thanksgiving mode toggle - set to false after Thanksgiving
 const THANKSGIVING_MODE = true;
 
@@ -185,52 +182,6 @@ export function renderApp(mount) {
   // Setup modal backdrop click and keyboard handlers
   setupModalBackdropHandlers(root);
   setupModalKeyboardHandlers(root);
-
-  // Inject Halloween overlay if enabled
-  if (HALLOWEEN_MODE && !root.querySelector('.halloween-overlay')) {
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = renderHalloweenOverlay();
-    root.appendChild(wrapper.firstElementChild);
-    // Initialize crawling spiders and flying bugs
-    initHalloweenSpiders();
-    initHalloweenFlies();
-  }
-
-  // Inject jump scare overlay if enabled
-  if (HALLOWEEN_MODE && !root.querySelector('.jump-scare-overlay')) {
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = renderJumpScareOverlay();
-    const nodes = Array.from(wrapper.children);
-    nodes.forEach(node => root.appendChild(node));
-
-    // Preload audio for instant playback
-    const audio = document.getElementById('jump-scare-audio');
-    if (audio) {
-      audio.load();
-      // Prime the audio on first user interaction (required for GitHub Pages/strict browsers)
-      const primeAudio = () => {
-        audio.volume = 0;
-        audio.play().then(() => {
-          audio.pause();
-          audio.currentTime = 0;
-          audio.volume = 1;
-        }).catch(() => {
-          // If play fails, at least the audio is loaded
-          audio.volume = 1;
-        });
-      };
-
-      // Prime on first click or keypress anywhere on the page
-      const primeOnInteraction = () => {
-        primeAudio();
-        document.removeEventListener('click', primeOnInteraction, true);
-        document.removeEventListener('keypress', primeOnInteraction, true);
-      };
-
-      document.addEventListener('click', primeOnInteraction, { once: true, capture: true });
-      document.addEventListener('keypress', primeOnInteraction, { once: true, capture: true });
-    }
-  }
 
   // Inject Thanksgiving overlay if enabled
   if (THANKSGIVING_MODE && !root.querySelector('.thanksgiving-overlay')) {
@@ -1111,23 +1062,6 @@ function renderCurrentProductsModal() {
   `;
 }
 
-function renderHalloweenOverlay() {
-  return `
-    <div class="halloween-overlay">
-    </div>
-  `;
-}
-
-function renderJumpScareOverlay() {
-  return `
-    <div class="jump-scare-overlay">
-      <img src="assets/jump-scare/scare.jpg" alt="">
-      <div class="jump-scare-refresh">Press ESC or refresh the page to continue...</div>
-    </div>
-    <audio id="jump-scare-audio" src="assets/jump-scare/scream2.mp3" preload="auto"></audio>
-  `;
-}
-
 function renderThanksgivingOverlay() {
   // Generate 15 falling leaves with random positions and delays
   const leaves = Array.from({ length: 15 }, (_, i) => {
@@ -1158,72 +1092,6 @@ function renderThanksgivingOverlay() {
       ${leaves}
     </div>
   `;
-}
-
-function triggerJumpScare() {
-  const overlay = document.querySelector('.jump-scare-overlay');
-  const audio = document.getElementById('jump-scare-audio');
-  const refreshMsg = document.querySelector('.jump-scare-refresh');
-
-  if (!overlay || !audio) return;
-
-  // Show image when audio actually starts playing
-  const showImage = () => {
-    // Add small delay to account for audio output latency (from speakers)
-    setTimeout(() => {
-      overlay.classList.add('active');
-
-      // Request fullscreen
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) {
-        elem.requestFullscreen().catch(err => console.warn('Fullscreen failed:', err));
-      } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen();
-      } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
-      }
-    }, 250);
-
-    audio.removeEventListener('playing', showImage);
-  };
-
-  // Listen for when audio actually starts
-  audio.addEventListener('playing', showImage);
-
-  // Start audio
-  audio.play().catch(err => {
-    console.warn('Audio play failed:', err);
-    // Fallback: show image anyway if audio fails
-    showImage();
-  });
-
-  // Show refresh message after 3 seconds
-  setTimeout(() => {
-    if (refreshMsg) {
-      refreshMsg.classList.add('active');
-    }
-  }, 3000);
-
-  // Allow ESC key to close
-  const escHandler = (e) => {
-    if (e.key === 'Escape') {
-      overlay.classList.remove('active');
-      if (refreshMsg) refreshMsg.classList.remove('active');
-      audio.pause();
-      audio.currentTime = 0;
-      document.removeEventListener('keydown', escHandler);
-
-      // Exit fullscreen
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
-      }
-    }
-  };
-  document.addEventListener('keydown', escHandler);
 }
 
 function triggerTurkeyExplosion() {
@@ -1329,64 +1197,6 @@ function playPanelVideo(src) {
     // Attempt immediate playback; browsers treat this as user-initiated due to click
     attemptPlay();
   }
-}
-
-function initHalloweenSpiders() {
-  if (!HALLOWEEN_MODE) return;
-
-  // Check if SpiderController is available (loaded from bug-min.js)
-  if (typeof window.SpiderController === 'undefined') {
-    console.warn('SpiderController not loaded yet, retrying...');
-    setTimeout(initHalloweenSpiders, 100);
-    return;
-  }
-
-  // Initialize crawling spiders with proper sprite settings
-  new window.SpiderController({
-    minBugs: 3,
-    maxBugs: 8,
-    minSpeed: 6,
-    maxSpeed: 13,
-    mouseOver: 'random',
-    canDie: true,
-    canFly: false, // Spiders don't fly
-    minDelay: 200,
-    maxDelay: 3000,
-    imageSprite: 'assets/Auz-Bug-8eac7b7/spider-sprite.png',
-    bugWidth: 69,
-    bugHeight: 90,
-    num_frames: 7,
-    zoom: 6
-  });
-}
-
-function initHalloweenFlies() {
-  if (!HALLOWEEN_MODE) return;
-
-  // Check if BugController is available (loaded from bug-min.js)
-  if (typeof window.BugController === 'undefined') {
-    console.warn('BugController not loaded yet, retrying...');
-    setTimeout(initHalloweenFlies, 100);
-    return;
-  }
-
-  // Initialize flying bugs with proper sprite settings
-  new window.BugController({
-    minBugs: 5,
-    maxBugs: 15,
-    minSpeed: 5,
-    maxSpeed: 10,
-    mouseOver: 'random',
-    canDie: true,
-    canFly: true,
-    minDelay: 500,
-    maxDelay: 10000,
-    imageSprite: 'assets/Auz-Bug-8eac7b7/fly-sprite.png',
-    bugWidth: 13,
-    bugHeight: 14,
-    num_frames: 5,
-    zoom: 10
-  });
 }
 
 function initTurkeyHunt() {
@@ -1688,17 +1498,6 @@ function handleRootClick(event, root) {
     target = target.parentElement;
   }
   if (!target) return;
-
-  // Check if clicking "Happy Halloween Darryl!!" in panel items
-  if (HALLOWEEN_MODE && target.tagName === 'CODE') {
-    const text = target.textContent?.trim();
-    if (text === 'Happy Halloween Darryl!!') {
-      event.preventDefault();
-      event.stopPropagation();
-      triggerJumpScare();
-      return;
-    }
-  }
 
   // Check if clicking "Happy Thanksgiving!" in panel items
   if (THANKSGIVING_MODE && target.tagName === 'CODE') {

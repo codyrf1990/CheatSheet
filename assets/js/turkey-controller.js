@@ -37,7 +37,6 @@ function loadTurkeyFrames(basePath, frameCount) {
             (function(frameNum) {
                 var img = new Image();
                 img.onload = function() {
-                    console.log('Loaded turkey frame ' + frameNum);
                     loadedCount++;
                     checkComplete();
                 };
@@ -55,7 +54,6 @@ function loadTurkeyFrames(basePath, frameCount) {
         // Load cooked turkey
         var cookedImg = new Image();
         cookedImg.onload = function() {
-            console.log('Loaded cooked turkey');
             TurkeyCookedFrame = cookedImg.src;
             loadedCount++;
             checkComplete();
@@ -79,7 +77,6 @@ function ensureTurkeyFrameCache(basePath, frameCount) {
         TurkeyFrameCachePromise = loadTurkeyFrames(basePath, frameCount)
             .then(function(frames) {
                 TurkeyFrameCache = frames;
-                console.log('Turkey frame cache ready with ' + frames.length + ' frames');
                 return frames;
             })
             .catch(function(err) {
@@ -420,12 +417,14 @@ TurkeyController.prototype.patchTurkeyBehaviors = function(turkey) {
                         self.bug.style.visibility = '';
                     }
                 }).catch(function() {
-                    applySpriteSheetFallback(self);
+                    // Frame loading failed - hide turkey and lock size
                     lockBackgroundSize(self.bug);
+                    if (self.bug) self.bug.style.visibility = 'hidden';
                 });
             } else {
-                applySpriteSheetFallback(self);
+                // No frame cache - just lock size and hide
                 lockBackgroundSize(self.bug);
+                if (self.bug) self.bug.style.visibility = 'hidden';
             }
             return;
         }
