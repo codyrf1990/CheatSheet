@@ -550,4 +550,25 @@ export class PageSystem {
       return queryIndex === lowerQuery.length;
     });
   }
+
+  /**
+   * Reset pages in current company to single default page
+   * Keeps company data, only resets page structure
+   */
+  resetPages() {
+    const company = this.getCurrentCompany();
+    if (!company) return;
+
+    // Reset to single default page with empty state
+    const defaultPage = {
+      id: generateId('page'),
+      name: 'P1',
+      state: { panels: {}, packages: {} }
+    };
+
+    company.pages = [defaultPage];
+    company.currentPageId = defaultPage.id;
+    company.updatedAt = Date.now();
+    this.save();
+  }
 }
