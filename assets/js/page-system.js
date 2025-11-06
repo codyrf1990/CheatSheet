@@ -160,6 +160,7 @@ export class PageSystem {
 
   /**
    * Save page system to localStorage
+   * CRITICAL FIX: Handle quota errors and warn user about data loss
    */
   save() {
     try {
@@ -169,6 +170,25 @@ export class PageSystem {
       localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(this.recentCompanyIds));
     } catch (error) {
       console.error('[PageSystem] Failed to save:', error);
+
+      // CRITICAL: Warn user about quota/storage errors (data loss!)
+      if (error.name === 'QuotaExceededError' || error.code === 22) {
+        alert(
+          'WARNING: Storage quota exceeded!\n\n' +
+          'Your changes could not be saved due to limited browser storage.\n\n' +
+          'To fix this:\n' +
+          '1. Delete some companies or pages\n' +
+          '2. Export your data first\n' +
+          '3. Clear browser cache for this site'
+        );
+      } else {
+        // Other storage errors
+        alert(
+          'ERROR: Failed to save your changes!\n\n' +
+          'Error: ' + (error.message || 'Unknown storage error') + '\n\n' +
+          'Your data may not be saved. Please try refreshing the page.'
+        );
+      }
     }
   }
 
@@ -197,6 +217,7 @@ export class PageSystem {
 
   /**
    * Save current company's page state
+   * CRITICAL FIX: Store deep copy instead of direct reference to prevent corruption
    */
   saveCurrentPageState(pageId, state) {
     const company = this.getCurrentCompany();
@@ -204,7 +225,8 @@ export class PageSystem {
 
     const page = company.pages.find(p => p.id === pageId);
     if (page) {
-      page.state = state;
+      // Store deep copy to prevent external mutations from affecting stored state
+      page.state = JSON.parse(JSON.stringify(state));
       company.updatedAt = Date.now();
       this.save();
     }
@@ -436,13 +458,17 @@ export class PageSystem {
 
   /**
    * Get current page state
+   * CRITICAL FIX: Return deep copy instead of direct reference to prevent state corruption
    */
   getCurrentPageState() {
     const company = this.getCurrentCompany();
     if (!company) return { panels: {}, packages: {} };
 
     const page = company.pages.find(p => p.id === company.currentPageId);
-    return page ? page.state : { panels: {}, packages: {} };
+    if (!page || !page.state) return { panels: {}, packages: {} };
+
+    // Return deep copy to prevent mutations from affecting stored state
+    return JSON.parse(JSON.stringify(page.state));
   }
 
   /**
