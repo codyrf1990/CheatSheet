@@ -2058,33 +2058,53 @@ function applyState(root, state) {
     row.querySelectorAll('.sub-checkbox').forEach(cb => cb.checked = false);
   });
 
-  // Rebuild all panels from state
+  // Rebuild panels from state, with fallback to defaults for maintenance panels
+  const panelsToRender = new Map();
+
+  // First, collect all panels from state
   if (state.panels) {
     Object.entries(state.panels).forEach(([panelId, items]) => {
-      if (panelId === 'maintenance-skus' || panelId === 'solidworks-maintenance') {
-        // Maintenance panels: two lists inside one panel
-        const combinedPanel = root.querySelector('.panel[data-panel="maintenance-combined"]');
-        if (!combinedPanel) return;
-        const list = combinedPanel.querySelector(`[data-sortable-group="${escapeSelector(panelId)}"]`);
-        if (!list) return;
-        list.innerHTML = items
-          .map(item => createPanelItemMarkup(item, { withCheckbox: true }))
-          .join('');
-        list.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
-      } else {
-        // Other editable panels: single list
-        const panel = root.querySelector(`.panel[data-panel="${escapeSelector(panelId)}"]`);
-        if (!panel) return;
-        const list = panel.querySelector('ul');
-        if (!list) return;
-        const supportsCheckbox = panelSupportsCheckboxes(panelId);
-        list.innerHTML = items
-          .map(item => createPanelItemMarkup(item, { withCheckbox: supportsCheckbox }))
-          .join('');
-        list.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
-      }
+      panelsToRender.set(panelId, items);
     });
   }
+
+  // Add defaults for maintenance panels if not in state
+  // This ensures maintenance SKUs always show up even for new companies
+  const maintenancePanelIds = ['maintenance-skus', 'solidworks-maintenance'];
+  maintenancePanelIds.forEach(panelId => {
+    if (!panelsToRender.has(panelId)) {
+      const defaultPanel = panels.find(p => p.id === panelId);
+      if (defaultPanel && defaultPanel.items) {
+        panelsToRender.set(panelId, defaultPanel.items);
+      }
+    }
+  });
+
+  // Now render all panels (state + defaults)
+  panelsToRender.forEach((items, panelId) => {
+    if (panelId === 'maintenance-skus' || panelId === 'solidworks-maintenance') {
+      // Maintenance panels: two lists inside one panel
+      const combinedPanel = root.querySelector('.panel[data-panel="maintenance-combined"]');
+      if (!combinedPanel) return;
+      const list = combinedPanel.querySelector(`[data-sortable-group="${escapeSelector(panelId)}"]`);
+      if (!list) return;
+      list.innerHTML = items
+        .map(item => createPanelItemMarkup(item, { withCheckbox: true }))
+        .join('');
+      list.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
+    } else {
+      // Other editable panels: single list
+      const panel = root.querySelector(`.panel[data-panel="${escapeSelector(panelId)}"]`);
+      if (!panel) return;
+      const list = panel.querySelector('ul');
+      if (!list) return;
+      const supportsCheckbox = panelSupportsCheckboxes(panelId);
+      list.innerHTML = items
+        .map(item => createPanelItemMarkup(item, { withCheckbox: supportsCheckbox }))
+        .join('');
+      list.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
+    }
+  });
 
   if (state.packages) {
     Object.entries(state.packages).forEach(([pkgCode, pkgState]) => {
