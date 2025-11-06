@@ -4,6 +4,7 @@ import { enableDrag, disableDrag } from './drag-and-drop.js';
 import { loadState, clearState } from './persistence.js';
 import { stateQueue } from './state-queue.js';
 import { logger } from './debug-logger.js';
+import { PageSystem } from './page-system.js';
 
 // Halloween mode toggle - set to false after Halloween
 const HALLOWEEN_MODE = false;
@@ -27,6 +28,7 @@ let widthSyncDirty = false;
 let editModeGuardId = null;
 let copyHudEl = null;
 let copyHudTimer = null;
+let pageSystem = null;
 
 export function renderApp(mount) {
   editMode = false;
@@ -35,9 +37,16 @@ export function renderApp(mount) {
   packageRemoveMode = false;
   panelRemoveModes.clear();
 
+  // Initialize page system
+  if (!pageSystem) {
+    pageSystem = new PageSystem();
+    pageSystem.load();
+  }
+
   mount.innerHTML = `
     <div class="page-shell">
       ${renderHeader()}
+      ${renderPageSystemControls()}
       <main>
         <section class="block">
           <div class="table-column">
@@ -103,6 +112,12 @@ export function renderApp(mount) {
     if (confirm('Reset all module and bit order to defaults?')) {
       resetModes(root);
       clearState();
+
+      // Reset current pages (keeps saved companies)
+      if (pageSystem) {
+        pageSystem.resetPages();
+      }
+
       location.reload();
     }
   });
@@ -123,10 +138,19 @@ export function renderApp(mount) {
   });
   root.addEventListener('sortable:drop', event => handleSortableDrop(event, root));
 
-  const saved = loadState();
-  if (saved) {
-    applyState(root, saved);
+  // Load current page state from page system
+  if (pageSystem) {
+    const pageState = pageSystem.getCurrentPageState();
+    if (pageState && (pageState.panels || pageState.packages)) {
+      applyState(root, pageState);
+    }
   }
+
+  // Attach page system event listeners
+  attachPageSystemListeners(root);
+
+  // Setup auto-save
+  setupAutoSave(root);
 
   updateMasterCheckboxes(root);
   registerCopyHandlers(root, () => editMode, showCopyHud);
@@ -422,6 +446,193 @@ function renderHeaderLink(link) {
       ${safeLabel}
     </a>
   `;
+}
+
+function renderPageSystemControls() {
+  if (!pageSystem) return '';
+
+  const company = pageSystem.getCurrentCompany();
+  if (!company) return '';
+
+  const pages = company.pages;
+  const currentId = company.currentPageId;
+
+  return `
+    <div class="page-system">
+      <button class="page-system-info-btn" data-action="toggle-page-system-help" type="button" title="How to use">
+        <img src="assets/img/about-gold-circle-23095.svg" alt="About">
+      </button>
+
+      <div class="page-system-help-tooltip" data-page-system-help hidden>
+        <div class="page-system-help-content">
+          <h3>How to Use Page System</h3>
+          <ul>
+            <li><strong>Company Dropdown:</strong> Select and switch between different companies</li>
+            <li><strong>🏢 New Company:</strong> Create a new company</li>
+            <li><strong>✏️ Rename:</strong> Rename the current company</li>
+            <li><strong>📋 Duplicate:</strong> Create a copy of the current company</li>
+            <li><strong>🗑️ Delete:</strong> Delete the current company</li>
+            <li><strong>Page Tabs:</strong> Click to switch between pages. Double-click a tab to rename it</li>
+            <li><strong>+ New:</strong> Create a new page in the current company</li>
+            <li><strong>📋 Copy:</strong> Duplicate the current page</li>
+            <li><strong>🗑️ Delete:</strong> Delete the current page</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="page-system-company-row">
+        <div class="page-system-company">
+          ${renderCompanyDropdown()}
+        </div>
+
+        <div class="company-actions-row">
+          <button class="page-action-btn page-action-btn--company" data-action="new-company-quick" title="Create new company">🏢 New Company</button>
+          <button class="company-action-btn" data-action="rename-company" type="button" title="Rename current company">✏️ Rename</button>
+          <button class="company-action-btn" data-action="duplicate-company" type="button" title="Duplicate current company">📋 Duplicate</button>
+          <button class="company-action-btn company-action-btn--danger" data-action="delete-company" type="button" title="Delete current company">🗑️ Delete</button>
+        </div>
+      </div>
+
+      <div class="page-system-tabs">
+        <div class="page-tabs" data-page-tabs>
+          ${pages.map(page => `
+            <button
+              class="page-tab${page.id === currentId ? ' active' : ''}"
+              data-page-id="${escapeAttr(page.id)}"
+              title="Double-click to rename"
+            >${escapeHtml(page.name)}</button>
+          `).join('')}
+        </div>
+        <div class="page-actions">
+          <button class="page-action-btn" data-action="new-page" title="Create new page">+ New</button>
+          <button class="page-action-btn" data-action="copy-page" title="Duplicate current page">📋 Copy</button>
+          <button class="page-action-btn" data-action="delete-page" title="Delete current page">🗑️ Delete</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCompanyDropdown() {
+  if (!pageSystem || !pageSystem.currentCompanyId) return '';
+
+  const current = pageSystem.getCurrentCompany();
+  if (!current) return '';
+
+  const allCompanies = pageSystem.companies;
+  const favorites = pageSystem.getFavorites();
+  const recent = pageSystem.getRecent(10);
+  const statusIcon = '●'; // Will be updated dynamically by updateSaveStatus
+
+  return `
+    <div class="company-dropdown">
+      <button
+        class="company-dropdown-trigger"
+        data-action="toggle-company-dropdown"
+        type="button"
+      >
+        ${escapeHtml(current.name)} <span class="status-indicator saved">${statusIcon}</span> ▼
+      </button>
+
+      <div class="company-dropdown-menu" data-company-menu hidden>
+        <div class="company-dropdown-header">
+          <span class="save-status" data-save-time>Auto-saved</span>
+          <span class="company-total-count">${allCompanies.length} ${allCompanies.length === 1 ? 'Company' : 'Companies'}</span>
+        </div>
+
+        <div class="company-dropdown-section">
+          <input
+            type="search"
+            class="company-search-input"
+            placeholder="🔍 Search companies..."
+            data-action="search-companies"
+          />
+        </div>
+
+        ${favorites.length > 0 ? `
+          <div class="company-dropdown-section">
+            <div class="company-section-title">⭐ Favorites (${favorites.length})</div>
+            <div class="company-list">
+              ${favorites.map(company => {
+                const isCurrent = company.id === current.id;
+                return `
+                  <div class="company-list-item-wrapper">
+                    <button
+                      class="company-list-item${isCurrent ? ' active' : ''}"
+                      data-action="switch-company"
+                      data-company-id="${escapeAttr(company.id)}"
+                      type="button"
+                    >
+                      ${escapeHtml(company.name)} ${isCurrent ? '●' : ''}
+                    </button>
+                    <button
+                      class="favorite-toggle active"
+                      data-action="toggle-favorite"
+                      data-company-id="${escapeAttr(company.id)}"
+                      title="Remove from favorites"
+                      type="button"
+                    >★</button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${recent.length > 0 ? `
+          <div class="company-dropdown-section">
+            <div class="company-section-title">🕒 Recent (${recent.length})</div>
+            <div class="company-list">
+              ${recent.map(company => {
+                const isCurrent = company.id === current.id;
+                const isFavorite = pageSystem.favoriteCompanyIds.includes(company.id);
+                return `
+                  <div class="company-list-item-wrapper">
+                    <button
+                      class="company-list-item${isCurrent ? ' active' : ''}"
+                      data-action="switch-company"
+                      data-company-id="${escapeAttr(company.id)}"
+                      type="button"
+                    >
+                      ${escapeHtml(company.name)} ${isCurrent ? '●' : ''}
+                    </button>
+                    <button
+                      class="favorite-toggle${isFavorite ? ' active' : ''}"
+                      data-action="toggle-favorite"
+                      data-company-id="${escapeAttr(company.id)}"
+                      title="${isFavorite ? 'Remove from favorites' : 'Add to favorites'}"
+                      type="button"
+                    >${isFavorite ? '★' : '☆'}</button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="company-dropdown-section" data-search-results-section hidden>
+          <div class="company-section-title">Search Results</div>
+          <div class="company-list" data-search-results-list></div>
+        </div>
+
+        <div class="company-dropdown-section company-dropdown-section--centered">
+          <div class="company-search-hint">💡 Use search to find companies</div>
+          <button class="company-browse-btn" data-action="browse-all-companies" type="button">
+            📋 Browse All →
+          </button>
+        </div>
+
+        <div class="company-dropdown-section">
+          <button class="company-new-btn" data-action="new-company" type="button">+ New Company</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function formatDate(isoString) {
+  const date = new Date(isoString);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function renderMaintenanceCombinedPanel() {
@@ -1899,16 +2110,47 @@ function updateMasterCheckboxes(root) {
 }
 
 function collectState(root) {
-  const panelState = Array.from(root.querySelectorAll('.panel')).reduce((acc, panel) => {
-    const id = panel.dataset.panel;
-    acc[id] = Array.from(panel.querySelectorAll('li')).map(li => {
-      const checkbox = li.querySelector('.panel-item-checkbox');
-      const code = li.querySelector('code');
-      const text = code?.textContent.trim() ?? li.textContent.trim();
-      return checkbox ? { text, checked: checkbox.checked } : text;
-    });
-    return acc;
-  }, {});
+  const panelState = {};
+
+  root.querySelectorAll('.panel').forEach(panel => {
+    const panelId = panel.dataset.panel;
+
+    // Special case: maintenance-combined has TWO separate lists
+    if (panelId === 'maintenance-combined') {
+      // Save maintenance-skus list separately
+      const maintList = panel.querySelector('[data-sortable-group="maintenance-skus"]');
+      if (maintList) {
+        panelState['maintenance-skus'] = Array.from(maintList.querySelectorAll('li')).map(li => {
+          const checkbox = li.querySelector('.panel-item-checkbox');
+          const code = li.querySelector('code');
+          const text = code?.textContent.trim() ?? li.textContent.trim();
+          return checkbox ? { text, checked: checkbox.checked } : text;
+        });
+      }
+
+      // Save solidworks-maintenance list separately
+      const swList = panel.querySelector('[data-sortable-group="solidworks-maintenance"]');
+      if (swList) {
+        panelState['solidworks-maintenance'] = Array.from(swList.querySelectorAll('li')).map(li => {
+          const checkbox = li.querySelector('.panel-item-checkbox');
+          const code = li.querySelector('code');
+          const text = code?.textContent.trim() ?? li.textContent.trim();
+          return checkbox ? { text, checked: checkbox.checked } : text;
+        });
+      }
+    } else {
+      // Normal panels: single list
+      const list = panel.querySelector('ul');
+      if (list) {
+        panelState[panelId] = Array.from(list.querySelectorAll('li')).map(li => {
+          const checkbox = li.querySelector('.panel-item-checkbox');
+          const code = li.querySelector('code');
+          const text = code?.textContent.trim() ?? li.textContent.trim();
+          return checkbox ? { text, checked: checkbox.checked } : text;
+        });
+      }
+    }
+  });
 
   const packageState = Array.from(root.querySelectorAll('tbody tr')).reduce((acc, row) => {
     const pkgCode = row.dataset.package;
@@ -1948,6 +2190,13 @@ const persistState = root => {
   if (!root) return Promise.resolve(false);
   try {
     const snapshot = collectState(root);
+
+    // Save to page system (current page)
+    if (pageSystem && pageSystem.currentPageId) {
+      pageSystem.savePageState(pageSystem.currentPageId, snapshot);
+    }
+
+    // Also save to stateQueue for backwards compatibility
     const changeType = determineChangeType(root);
     const metadata = {
       rootId: root.id || 'root',
@@ -1987,15 +2236,32 @@ export { persistState };
 function applyState(root, state) {
   if (state.panels) {
     Object.entries(state.panels).forEach(([panelId, items]) => {
-      const panel = root.querySelector(`.panel[data-panel="${escapeSelector(panelId)}"]`);
-      if (!panel) return;
-      const list = panel.querySelector('ul');
-      if (!list) return;
-      const supportsCheckbox = panelSupportsCheckboxes(panelId);
-      list.innerHTML = items
-        .map(item => createPanelItemMarkup(item, { withCheckbox: supportsCheckbox }))
-        .join('');
-      list.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
+      // Special case: maintenance-skus and solidworks-maintenance live inside maintenance-combined panel
+      if (panelId === 'maintenance-skus' || panelId === 'solidworks-maintenance') {
+        const combinedPanel = root.querySelector('.panel[data-panel="maintenance-combined"]');
+        if (!combinedPanel) return;
+
+        // Find the specific list by its data-sortable-group attribute
+        const list = combinedPanel.querySelector(`[data-sortable-group="${escapeSelector(panelId)}"]`);
+        if (!list) return;
+
+        const supportsCheckbox = panelSupportsCheckboxes(panelId);
+        list.innerHTML = items
+          .map(item => createPanelItemMarkup(item, { withCheckbox: supportsCheckbox }))
+          .join('');
+        list.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
+      } else {
+        // Normal panels: single list
+        const panel = root.querySelector(`.panel[data-panel="${escapeSelector(panelId)}"]`);
+        if (!panel) return;
+        const list = panel.querySelector('ul');
+        if (!list) return;
+        const supportsCheckbox = panelSupportsCheckboxes(panelId);
+        list.innerHTML = items
+          .map(item => createPanelItemMarkup(item, { withCheckbox: supportsCheckbox }))
+          .join('');
+        list.querySelectorAll('code').forEach(code => bindCopyHandler(code, () => editMode, showCopyHud));
+      }
     });
   }
 
@@ -2327,6 +2593,729 @@ function setupModalKeyboardHandlers(root) {
       closeModal(root);
     }
   });
+}
+
+// ========================================
+// Page System Event Handlers
+// ========================================
+
+function attachPageSystemListeners(root) {
+  // Help tooltip toggle
+  const helpBtn = root.querySelector('[data-action="toggle-page-system-help"]');
+  const helpTooltip = root.querySelector('[data-page-system-help]');
+  if (helpBtn && helpTooltip) {
+    helpBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = helpTooltip.hasAttribute('hidden');
+      if (isHidden) {
+        helpTooltip.removeAttribute('hidden');
+      } else {
+        helpTooltip.setAttribute('hidden', '');
+      }
+    });
+
+    // Close tooltip when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!helpTooltip.hasAttribute('hidden') &&
+          !helpTooltip.contains(e.target) &&
+          !helpBtn.contains(e.target)) {
+        helpTooltip.setAttribute('hidden', '');
+      }
+    });
+  }
+
+  // Company dropdown toggle
+  const dropdownTrigger = root.querySelector('[data-action="toggle-company-dropdown"]');
+  if (dropdownTrigger) {
+    dropdownTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleDropdownToggle(root);
+    });
+  }
+
+  // Company actions
+  const newCompanyBtn = root.querySelector('[data-action="new-company"]');
+  if (newCompanyBtn) {
+    newCompanyBtn.addEventListener('click', () => handleNewCompany(root));
+  }
+
+  // Quick new company button (in page actions)
+  const newCompanyQuickBtn = root.querySelector('[data-action="new-company-quick"]');
+  if (newCompanyQuickBtn) {
+    newCompanyQuickBtn.addEventListener('click', () => handleNewCompany(root));
+  }
+
+  const duplicateBtn = root.querySelector('[data-action="duplicate-company"]');
+  if (duplicateBtn) {
+    duplicateBtn.addEventListener('click', () => handleDuplicateCompany(root));
+  }
+
+  const renameBtn = root.querySelector('[data-action="rename-company"]');
+  if (renameBtn) {
+    renameBtn.addEventListener('click', () => handleRenameCurrentCompany(root));
+  }
+
+  const deleteBtn = root.querySelector('[data-action="delete-company"]');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => handleDeleteCurrentCompany(root));
+  }
+
+  // Browse All button
+  const browseBtn = root.querySelector('[data-action="browse-all-companies"]');
+  if (browseBtn) {
+    browseBtn.addEventListener('click', () => {
+      openBrowseAllModal(root);
+    });
+  }
+
+  // Search input
+  const searchInput = root.querySelector('[data-action="search-companies"]');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      handleSearchCompanies(e.target, root);
+    });
+  }
+
+  // Attach listeners for company switch and favorite toggle
+  attachDropdownActionListeners(root);
+
+  // Page tab click handler
+  const pageTabs = root.querySelector('[data-page-tabs]');
+  if (pageTabs) {
+    pageTabs.addEventListener('click', (e) => {
+      if (e.target.matches('.page-tab')) {
+        handlePageSwitch(e.target.dataset.pageId, root);
+      }
+    });
+
+    pageTabs.addEventListener('dblclick', (e) => {
+      if (e.target.matches('.page-tab')) {
+        handlePageRename(e.target.dataset.pageId, root);
+      }
+    });
+  }
+
+  // Page action buttons
+  const newPageBtn = root.querySelector('[data-action="new-page"]');
+  if (newPageBtn) {
+    newPageBtn.addEventListener('click', () => handlePageNew(root));
+  }
+
+  const copyPageBtn = root.querySelector('[data-action="copy-page"]');
+  if (copyPageBtn) {
+    copyPageBtn.addEventListener('click', () => handlePageCopy(root));
+  }
+
+  const deletePageBtn = root.querySelector('[data-action="delete-page"]');
+  if (deletePageBtn) {
+    deletePageBtn.addEventListener('click', () => handlePageDelete(root));
+  }
+}
+
+function handlePageSwitch(pageId, root) {
+  const company = pageSystem?.getCurrentCompany();
+  if (!company || pageId === company.currentPageId) return;
+
+  // Save current page state before switching
+  const currentState = collectState(root);
+  const currentPage = company.pages.find(p => p.id === company.currentPageId);
+  if (currentPage) {
+    currentPage.state = currentState;
+  }
+
+  // Switch to new page
+  pageSystem.switchToPage(pageId);
+
+  // Apply new page state
+  const newState = pageSystem.getCurrentPageState();
+  applyState(root, newState);
+
+  // Update master checkboxes
+  updateMasterCheckboxes(root);
+
+  // Re-render page controls to update active tab
+  refreshPageSystemUI(root);
+}
+
+function handlePageRename(pageId, root) {
+  const currentName = pageSystem.getPageName(pageId);
+  const newName = prompt('Rename page (max 8 characters):', currentName);
+
+  if (!newName || newName === currentName) return;
+
+  const trimmed = newName.trim().substring(0, 8);
+  if (!trimmed) return;
+
+  pageSystem.renamePage(pageId, trimmed);
+  refreshPageSystemUI(root);
+}
+
+function handlePageNew(root) {
+  const company = pageSystem.getCurrentCompany();
+  if (!company) return;
+
+  // Save current page state
+  const currentState = collectState(root);
+  const currentPage = company.pages.find(p => p.id === company.currentPageId);
+  if (currentPage) {
+    currentPage.state = currentState;
+  }
+
+  // Create new empty page
+  const pageNum = company.pages.length + 1;
+  const newPage = pageSystem.createPage(`P${pageNum}`);
+
+  // Switch to new page with empty state
+  pageSystem.switchToPage(newPage.id);
+  applyState(root, { panels: {}, packages: {} });
+  updateMasterCheckboxes(root);
+
+  refreshPageSystemUI(root);
+}
+
+function handlePageCopy(root) {
+  const company = pageSystem.getCurrentCompany();
+  if (!company) return;
+
+  // Save current page state
+  const currentState = collectState(root);
+  const currentPage = company.pages.find(p => p.id === company.currentPageId);
+  if (currentPage) {
+    currentPage.state = currentState;
+  }
+
+  // Copy page
+  const pageNum = company.pages.length + 1;
+  const newPage = pageSystem.copyPage(company.currentPageId, `P${pageNum}`);
+
+  if (!newPage) {
+    alert('Failed to copy page.');
+    return;
+  }
+
+  // Switch to copied page
+  pageSystem.switchToPage(newPage.id);
+  applyState(root, newPage.state);
+  updateMasterCheckboxes(root);
+
+  refreshPageSystemUI(root);
+}
+
+function handlePageDelete(root) {
+  const company = pageSystem.getCurrentCompany();
+  if (!company || company.pages.length === 1) {
+    alert('Cannot delete the last page.');
+    return;
+  }
+
+  const pageName = pageSystem.getCurrentPageName();
+  if (!confirm(`Delete page "${pageName}"?`)) return;
+
+  const nextPageId = pageSystem.deletePage(company.currentPageId);
+
+  const newState = pageSystem.getCurrentPageState();
+  applyState(root, newState);
+  updateMasterCheckboxes(root);
+
+  refreshPageSystemUI(root);
+}
+
+
+/**
+ * Auto-save functionality
+ */
+let autoSaveTimeout = null;
+
+function setupAutoSave(root) {
+  const triggerAutoSave = () => {
+    if (autoSaveTimeout) clearTimeout(autoSaveTimeout);
+
+    updateSaveStatus('saving');
+
+    autoSaveTimeout = setTimeout(() => {
+      try {
+        const state = collectState(root);
+        const company = pageSystem.getCurrentCompany();
+        if (company) {
+          const page = company.pages.find(p => p.id === company.currentPageId);
+          if (page) {
+            page.state = state;
+            company.updatedAt = Date.now();
+            pageSystem.save();
+            updateSaveStatus('saved');
+          }
+        }
+      } catch (error) {
+        console.error('[Auto-save error]', error);
+        updateSaveStatus('error');
+      }
+    }, 500);
+  };
+
+  // Listen to all change events
+  root.addEventListener('change', triggerAutoSave);
+  root.addEventListener('sortable:drop', triggerAutoSave);
+
+  // Also trigger on manual actions
+  root.addEventListener('click', (e) => {
+    const action = e.target.closest('[data-action]');
+    if (action && ['panel-remove-item', 'package-remove-bit'].includes(action.dataset.action)) {
+      triggerAutoSave();
+    }
+  });
+}
+
+function updateSaveStatus(status) {
+  const indicator = document.querySelector('.status-indicator');
+  const saveTime = document.querySelector('[data-save-time]');
+
+  if (indicator) {
+    if (status === 'saving') {
+      indicator.textContent = '○';
+      indicator.className = 'status-indicator saving';
+    } else if (status === 'saved') {
+      indicator.textContent = '●';
+      indicator.className = 'status-indicator saved';
+      if (saveTime) {
+        saveTime.textContent = 'Auto-saved just now';
+        updateRelativeTime();
+      }
+    } else if (status === 'error') {
+      indicator.textContent = '⚠';
+      indicator.className = 'status-indicator error';
+    }
+  }
+}
+
+let relativeTimeInterval = null;
+
+function updateRelativeTime() {
+  if (relativeTimeInterval) clearInterval(relativeTimeInterval);
+
+  const saveTime = document.querySelector('[data-save-time]');
+  if (!saveTime) return;
+
+  const company = pageSystem.getCurrentCompany();
+  if (!company) return;
+
+  const updateTime = () => {
+    const seconds = Math.floor((Date.now() - company.updatedAt) / 1000);
+    if (seconds < 5) {
+      saveTime.textContent = 'Auto-saved just now';
+    } else if (seconds < 60) {
+      saveTime.textContent = `Auto-saved ${seconds}s ago`;
+    } else if (seconds < 3600) {
+      saveTime.textContent = `Auto-saved ${Math.floor(seconds / 60)}m ago`;
+    } else {
+      saveTime.textContent = `Auto-saved ${Math.floor(seconds / 3600)}h ago`;
+    }
+  };
+
+  updateTime();
+  relativeTimeInterval = setInterval(updateTime, 5000);
+}
+
+/**
+ * Company dropdown handlers
+ */
+let currentDropdownCloseHandler = null;
+
+function handleDropdownToggle(root) {
+  const menu = root.querySelector('[data-company-menu]');
+  if (!menu) return;
+
+  const isHidden = menu.hasAttribute('hidden');
+
+  if (isHidden) {
+    // Open dropdown
+    menu.removeAttribute('hidden');
+
+    // Close on click outside
+    setTimeout(() => {
+      if (currentDropdownCloseHandler) {
+        document.removeEventListener('click', currentDropdownCloseHandler);
+      }
+
+      currentDropdownCloseHandler = (e) => {
+        if (!e.target.closest('.company-dropdown')) {
+          closeDropdown(root);
+        }
+      };
+      document.addEventListener('click', currentDropdownCloseHandler);
+    }, 0);
+  } else {
+    // Close dropdown
+    closeDropdown(root);
+  }
+}
+
+function closeDropdown(root) {
+  const menu = root.querySelector('[data-company-menu]');
+  if (menu) {
+    menu.setAttribute('hidden', '');
+  }
+
+  if (currentDropdownCloseHandler) {
+    document.removeEventListener('click', currentDropdownCloseHandler);
+    currentDropdownCloseHandler = null;
+  }
+}
+
+function handleSwitchCompany(companyId, root) {
+  if (!pageSystem.switchToCompany(companyId)) {
+    alert('Failed to switch company');
+    return;
+  }
+
+  // Apply new company's current page state
+  const newState = pageSystem.getCurrentPageState();
+  applyState(root, newState);
+  updateMasterCheckboxes(root);
+
+  // Re-render UI
+  refreshPageSystemUI(root);
+  updateSaveStatus('saved');
+}
+
+function handleNewCompany(root) {
+  const name = prompt('New company name:', 'Untitled Company');
+  if (!name) return;
+
+  const company = pageSystem.createCompany(name.trim());
+
+  // Apply empty state
+  applyState(root, { panels: {}, packages: {} });
+  updateMasterCheckboxes(root);
+
+  // Re-render UI
+  refreshPageSystemUI(root);
+  updateSaveStatus('saved');
+}
+
+function handleDuplicateCompany(root) {
+  const current = pageSystem.getCurrentCompany();
+  if (!current) return;
+
+  const copy = pageSystem.duplicateCompany(current.id);
+  if (!copy) {
+    alert('Failed to duplicate company');
+    return;
+  }
+
+  // Switch to the copy
+  pageSystem.switchToCompany(copy.id);
+
+  // Apply state
+  const newState = pageSystem.getCurrentPageState();
+  applyState(root, newState);
+  updateMasterCheckboxes(root);
+
+  // Re-render UI
+  refreshPageSystemUI(root);
+  updateSaveStatus('saved');
+}
+
+function handleRenameCurrentCompany(root) {
+  const current = pageSystem.getCurrentCompany();
+  if (!current) return;
+
+  const newName = prompt('Rename company:', current.name);
+  if (!newName || newName.trim() === current.name) return;
+
+  if (pageSystem.renameCurrentCompany(newName.trim())) {
+    refreshPageSystemUI(root);
+    updateSaveStatus('saved');
+  } else {
+    alert('Failed to rename company');
+  }
+}
+
+function handleDeleteCurrentCompany(root) {
+  const current = pageSystem.getCurrentCompany();
+  if (!current) return;
+
+  if (pageSystem.companies.length === 1) {
+    alert('Cannot delete the last company.');
+    return;
+  }
+
+  if (!confirm(`Delete company "${current.name}"?\n\nThis cannot be undone.`)) {
+    return;
+  }
+
+  const nextId = pageSystem.deleteCompany(current.id);
+
+  // Apply new company's state
+  const newState = pageSystem.getCurrentPageState();
+  applyState(root, newState);
+  updateMasterCheckboxes(root);
+
+  // Re-render UI
+  refreshPageSystemUI(root);
+  updateSaveStatus('saved');
+}
+
+function handleToggleFavorite(companyId, root) {
+  pageSystem.toggleFavorite(companyId);
+  refreshPageSystemUI(root);
+  // Don't close dropdown - user might want to toggle multiple favorites
+}
+
+/**
+ * Company search handler
+ */
+let searchTimeout = null;
+
+function handleSearchCompanies(input, root) {
+  if (searchTimeout) clearTimeout(searchTimeout);
+
+  searchTimeout = setTimeout(() => {
+    const query = input.value.trim();
+    const menu = root.querySelector('[data-company-menu]');
+    if (!menu) return;
+
+    const searchResultsSection = menu.querySelector('[data-search-results-section]');
+    const searchHint = menu.querySelector('.company-search-hint');
+
+    if (!query) {
+      // Empty search - hide results, show hint
+      if (searchResultsSection) searchResultsSection.setAttribute('hidden', '');
+      if (searchHint) searchHint.style.display = 'block';
+    } else {
+      // Active search - show results, hide hint
+      const results = pageSystem.searchCompanies(query);
+      renderSearchResults(results, root);
+      if (searchHint) searchHint.style.display = 'none';
+    }
+  }, 150);
+}
+
+function renderSearchResults(results, root) {
+  const menu = root.querySelector('[data-company-menu]');
+  if (!menu) return;
+
+  const current = pageSystem.getCurrentCompany();
+  const searchResultsSection = menu.querySelector('[data-search-results-section]');
+  const searchResultsList = menu.querySelector('[data-search-results-list]');
+
+  if (!searchResultsSection || !searchResultsList) return;
+
+  if (results.length === 0) {
+    searchResultsList.innerHTML = '<p class="no-results">No companies found</p>';
+  } else {
+    searchResultsList.innerHTML = results.map(company => {
+      const isCurrent = company.id === current.id;
+      const isFavorite = pageSystem.favoriteCompanyIds.includes(company.id);
+      return `
+        <div class="company-list-item-wrapper">
+          <button
+            class="company-list-item${isCurrent ? ' active' : ''}"
+            data-action="switch-company"
+            data-company-id="${escapeAttr(company.id)}"
+            type="button"
+          >
+            ${escapeHtml(company.name)} ${isCurrent ? '●' : ''}
+          </button>
+          <button
+            class="favorite-toggle${isFavorite ? ' active' : ''}"
+            data-action="toggle-favorite"
+            data-company-id="${escapeAttr(company.id)}"
+            title="${isFavorite ? 'Remove from favorites' : 'Add to favorites'}"
+            type="button"
+          >${isFavorite ? '★' : '☆'}</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  searchResultsSection.removeAttribute('hidden');
+  attachDropdownActionListeners(root);
+}
+
+function attachDropdownActionListeners(root) {
+  // Switch company
+  root.querySelectorAll('[data-action="switch-company"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const companyId = btn.dataset.companyId;
+      handleSwitchCompany(companyId, root);
+    });
+  });
+
+  // Toggle favorite
+  root.querySelectorAll('[data-action="toggle-favorite"]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const companyId = btn.dataset.companyId;
+      handleToggleFavorite(companyId, root);
+    });
+  });
+}
+
+/**
+ * Browse All Modal
+ */
+function renderBrowseAllModal() {
+  const companies = pageSystem.companies;
+  const current = pageSystem.getCurrentCompany();
+
+  // Group by first letter
+  const grouped = companies.reduce((acc, company) => {
+    const letter = company.name[0].toUpperCase();
+    if (!acc[letter]) acc[letter] = [];
+    acc[letter].push(company);
+    return acc;
+  }, {});
+
+  const letters = Object.keys(grouped).sort();
+
+  return `
+    <div class="browse-modal-overlay" data-modal="browse-all">
+      <div class="browse-modal">
+        <div class="browse-modal-header">
+          <h3>All Companies (${companies.length})</h3>
+          <button class="browse-modal-close" data-action="close-browse-modal" type="button">×</button>
+        </div>
+
+        <div class="browse-modal-search">
+          <input
+            type="search"
+            placeholder="🔍 Search..."
+            data-action="search-browse-companies"
+            class="browse-search-input"
+          />
+        </div>
+
+        <div class="browse-modal-body">
+          ${letters.map(letter => `
+            <div class="browse-letter-group">
+              <div class="browse-letter-header">${letter}</div>
+              ${grouped[letter].map(company => {
+                const isCurrent = company.id === current.id;
+                const isFavorite = pageSystem.favoriteCompanyIds.includes(company.id);
+                return `
+                  <div class="browse-company-item">
+                    <button
+                      class="browse-company-btn${isCurrent ? ' active' : ''}"
+                      data-action="switch-company-modal"
+                      data-company-id="${escapeAttr(company.id)}"
+                      type="button"
+                    >
+                      <span class="browse-company-name">${escapeHtml(company.name)}</span>
+                      <span class="browse-company-meta">${company.pages.length} page${company.pages.length !== 1 ? 's' : ''}</span>
+                    </button>
+                    <button
+                      class="browse-favorite-btn${isFavorite ? ' active' : ''}"
+                      data-action="toggle-favorite-modal"
+                      data-company-id="${escapeAttr(company.id)}"
+                      type="button"
+                    >${isFavorite ? '★' : '☆'}</button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function openBrowseAllModal(root) {
+  const existing = document.querySelector('[data-modal="browse-all"]');
+  if (existing) existing.remove();
+
+  document.body.insertAdjacentHTML('beforeend', renderBrowseAllModal());
+  attachBrowseModalListeners(root);
+}
+
+function attachBrowseModalListeners(root) {
+  const modal = document.querySelector('[data-modal="browse-all"]');
+  if (!modal) return;
+
+  // Close button
+  const closeBtn = modal.querySelector('[data-action="close-browse-modal"]');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeBrowseModal);
+  }
+
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeBrowseModal();
+  });
+
+  // Switch company
+  modal.querySelectorAll('[data-action="switch-company-modal"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const companyId = btn.dataset.companyId;
+      closeBrowseModal();
+      handleSwitchCompany(companyId, root);
+    });
+  });
+
+  // Toggle favorite
+  modal.querySelectorAll('[data-action="toggle-favorite-modal"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const companyId = btn.dataset.companyId;
+      pageSystem.toggleFavorite(companyId);
+      // Re-render modal
+      closeBrowseModal();
+      setTimeout(() => openBrowseAllModal(root), 0);
+    });
+  });
+
+  // Search
+  const searchInput = modal.querySelector('[data-action="search-browse-companies"]');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      handleBrowseSearch(e.target.value, root);
+    });
+  }
+}
+
+function closeBrowseModal() {
+  const modal = document.querySelector('[data-modal="browse-all"]');
+  if (modal) modal.remove();
+}
+
+function handleBrowseSearch(query, root) {
+  const modal = document.querySelector('[data-modal="browse-all"]');
+  if (!modal) return;
+
+  const items = modal.querySelectorAll('.browse-company-item');
+  const lowerQuery = query.toLowerCase();
+
+  items.forEach(item => {
+    const btn = item.querySelector('.browse-company-btn');
+    const name = btn.querySelector('.browse-company-name').textContent.toLowerCase();
+
+    if (name.includes(lowerQuery)) {
+      item.style.display = '';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+
+  // Hide empty letter groups
+  const groups = modal.querySelectorAll('.browse-letter-group');
+  groups.forEach(group => {
+    const visibleItems = group.querySelectorAll('.browse-company-item:not([style*="display: none"])');
+    if (visibleItems.length === 0) {
+      group.style.display = 'none';
+    } else {
+      group.style.display = '';
+    }
+  });
+}
+
+function refreshPageSystemUI(root) {
+  const pageSystemEl = root.querySelector('.page-system');
+  if (!pageSystemEl) return;
+
+  // Replace the page system HTML
+  pageSystemEl.outerHTML = renderPageSystemControls();
+
+  // Re-attach event listeners to the new elements
+  attachPageSystemListeners(root);
 }
 
 function buildMasterLabelLookup() {
