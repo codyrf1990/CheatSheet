@@ -1991,8 +1991,13 @@ const persistState = root => {
     const snapshot = collectState(root);
 
     // Save to page system (current page)
-    if (pageSystem && pageSystem.currentPageId) {
-      pageSystem.savePageState(pageSystem.currentPageId, snapshot);
+    // CRITICAL FIX #1: Use correct method name (was savePageState, should be saveCurrentPageState)
+    // CRITICAL FIX #2: Use getCurrentPageId() method, not .currentPageId property (doesn't exist!)
+    if (pageSystem) {
+      const pageId = pageSystem.getCurrentPageId();
+      if (pageId) {
+        pageSystem.saveCurrentPageState(pageId, snapshot);
+      }
     }
 
     // Also save to stateQueue for backwards compatibility
@@ -2033,6 +2038,22 @@ function determineChangeType(root) {
 export { persistState };
 
 function applyState(root, state) {
+  // CRITICAL FIX: Clear all existing content before applying new state
+  // This prevents old company's data from remaining visible when switching to empty state
+
+  // Clear all panel lists
+  root.querySelectorAll('.panel ul').forEach(list => {
+    list.innerHTML = '';
+  });
+
+  // Clear all package bits (loose bits and groups)
+  root.querySelectorAll('tbody tr ul.bits').forEach(list => {
+    list.innerHTML = '';
+  });
+  root.querySelectorAll('tbody tr .group-column').forEach(col => {
+    col.remove();
+  });
+
   if (state.panels) {
     Object.entries(state.panels).forEach(([panelId, items]) => {
       // Special case: maintenance-skus and solidworks-maintenance live inside maintenance-combined panel
@@ -2398,7 +2419,23 @@ function setupModalKeyboardHandlers(root) {
 // Page System Event Handlers
 // ========================================
 
+// CRITICAL FIX: Track document listeners to prevent memory leaks
+// Store references so they can be removed when UI refreshes
+let documentClickListener = null;
+
+function cleanupPageSystemListeners() {
+  // Remove old document listeners before adding new ones
+  if (documentClickListener) {
+    document.removeEventListener('click', documentClickListener);
+    documentClickListener = null;
+  }
+}
+
 function attachPageSystemListeners(root) {
+  // CRITICAL FIX: Remove old listeners first to prevent memory leaks
+  // Each UI refresh was adding new document listeners without removing old ones
+  cleanupPageSystemListeners();
+
   // Help tooltip toggle
   const helpBtn = root.querySelector('[data-action="toggle-page-system-help"]');
   const helpTooltip = root.querySelector('[data-page-system-help]');
@@ -2414,13 +2451,15 @@ function attachPageSystemListeners(root) {
     });
 
     // Close tooltip when clicking outside
-    document.addEventListener('click', (e) => {
+    // CRITICAL FIX: Store reference so it can be removed later
+    documentClickListener = (e) => {
       if (!helpTooltip.hasAttribute('hidden') &&
           !helpTooltip.contains(e.target) &&
           !helpBtn.contains(e.target)) {
         helpTooltip.setAttribute('hidden', '');
       }
-    });
+    };
+    document.addEventListener('click', documentClickListener);
   }
 
   // Company dropdown toggle
@@ -2537,13 +2576,29 @@ function handlePageSwitch(pageId, root) {
 }
 
 function handlePageRename(pageId, root) {
+  const company = pageSystem.getCurrentCompany();
+  if (!company) return;
+
   const currentName = pageSystem.getPageName(pageId);
   const newName = prompt('Rename page (max 8 characters):', currentName);
 
-  if (!newName || newName === currentName) return;
+  if (!newName) return;
 
+  // CRITICAL FIX: Validate page name
   const trimmed = newName.trim().substring(0, 8);
-  if (!trimmed) return;
+  if (!trimmed) {
+    alert('Page name cannot be empty.');
+    return;
+  }
+
+  if (trimmed === currentName) return;
+
+  // CRITICAL FIX: Check for duplicate page names (excluding current page)
+  const exists = company.pages.some(p => p.id !== pageId && p.name === trimmed);
+  if (exists) {
+    alert(`A page named "${trimmed}" already exists.\nPlease choose a different name.`);
+    return;
+  }
 
   pageSystem.renamePage(pageId, trimmed);
   refreshPageSystemUI(root);
@@ -2610,6 +2665,13 @@ function handlePageDelete(root) {
   const pageName = pageSystem.getCurrentPageName();
   if (!confirm(`Delete page "${pageName}"?`)) return;
 
+  // CRITICAL FIX: Cancel pending auto-save before deleting page
+  // This prevents auto-save from trying to save to a deleted page
+  if (autoSaveTimeout) {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = null;
+  }
+
   const nextPageId = pageSystem.deletePage(company.currentPageId);
 
   const newState = pageSystem.getCurrentPageState();
@@ -2631,19 +2693,37 @@ function setupAutoSave(root) {
 
     updateSaveStatus('saving');
 
+    // CRITICAL FIX: Capture company and page context NOW (not when callback executes)
+    // This prevents race conditions when user switches companies before auto-save fires
+    const companyId = pageSystem.currentCompanyId;
+    const pageId = pageSystem.getCurrentPageId();
+
     autoSaveTimeout = setTimeout(() => {
       try {
         const state = collectState(root);
-        const company = pageSystem.getCurrentCompany();
-        if (company) {
-          const page = company.pages.find(p => p.id === company.currentPageId);
-          if (page) {
-            page.state = state;
-            company.updatedAt = Date.now();
-            pageSystem.save();
-            updateSaveStatus('saved');
-          }
+
+        // Use captured IDs, not current context
+        const company = pageSystem.companies.find(c => c.id === companyId);
+        if (!company) {
+          // CRITICAL FIX: Company was deleted while auto-save was pending
+          console.warn('[Auto-save] Company no longer exists:', companyId);
+          updateSaveStatus('error');
+          return;
         }
+
+        const page = company.pages.find(p => p.id === pageId);
+        if (!page) {
+          // CRITICAL FIX: Page was deleted while auto-save was pending
+          console.warn('[Auto-save] Page no longer exists:', pageId);
+          updateSaveStatus('error');
+          return;
+        }
+
+        // Save state to the captured company/page
+        page.state = state;
+        company.updatedAt = Date.now();
+        pageSystem.save();
+        updateSaveStatus('saved');
       } catch (error) {
         console.error('[Auto-save error]', error);
         updateSaveStatus('error');
@@ -2761,6 +2841,30 @@ function closeDropdown(root) {
 }
 
 function handleSwitchCompany(companyId, root) {
+  // CRITICAL FIX: Flush pending auto-save before switching
+  // This prevents race conditions where auto-save fires after context change
+  if (autoSaveTimeout) {
+    clearTimeout(autoSaveTimeout);
+
+    // Save current state immediately before switching
+    try {
+      const state = collectState(root);
+      const currentCompany = pageSystem.getCurrentCompany();
+      if (currentCompany) {
+        const page = currentCompany.pages.find(p => p.id === currentCompany.currentPageId);
+        if (page) {
+          page.state = state;
+          currentCompany.updatedAt = Date.now();
+          pageSystem.save();
+        }
+      }
+    } catch (error) {
+      console.error('[Pre-switch save error]', error);
+    }
+
+    autoSaveTimeout = null;
+  }
+
   if (!pageSystem.switchToCompany(companyId)) {
     alert('Failed to switch company');
     return;
@@ -2780,7 +2884,21 @@ function handleNewCompany(root) {
   const name = prompt('New company name:', 'Untitled Company');
   if (!name) return;
 
-  const company = pageSystem.createCompany(name.trim());
+  // CRITICAL FIX: Validate company name
+  const trimmed = name.trim();
+  if (!trimmed) {
+    alert('Company name cannot be empty.');
+    return;
+  }
+
+  // CRITICAL FIX: Check for duplicate names
+  const exists = pageSystem.companies.some(c => c.name === trimmed);
+  if (exists) {
+    alert(`A company named "${trimmed}" already exists.\nPlease choose a different name.`);
+    return;
+  }
+
+  const company = pageSystem.createCompany(trimmed);
 
   // Apply empty state
   applyState(root, { panels: {}, packages: {} });
@@ -2819,9 +2937,25 @@ function handleRenameCurrentCompany(root) {
   if (!current) return;
 
   const newName = prompt('Rename company:', current.name);
-  if (!newName || newName.trim() === current.name) return;
+  if (!newName) return;
 
-  if (pageSystem.renameCurrentCompany(newName.trim())) {
+  // CRITICAL FIX: Validate company name
+  const trimmed = newName.trim();
+  if (!trimmed) {
+    alert('Company name cannot be empty.');
+    return;
+  }
+
+  if (trimmed === current.name) return;
+
+  // CRITICAL FIX: Check for duplicate names (excluding current company)
+  const exists = pageSystem.companies.some(c => c.id !== current.id && c.name === trimmed);
+  if (exists) {
+    alert(`A company named "${trimmed}" already exists.\nPlease choose a different name.`);
+    return;
+  }
+
+  if (pageSystem.renameCurrentCompany(trimmed)) {
     refreshPageSystemUI(root);
     updateSaveStatus('saved');
   } else {
@@ -2840,6 +2974,13 @@ function handleDeleteCurrentCompany(root) {
 
   if (!confirm(`Delete company "${current.name}"?\n\nThis cannot be undone.`)) {
     return;
+  }
+
+  // CRITICAL FIX: Cancel pending auto-save before deleting company
+  // This prevents auto-save from trying to save to a deleted company
+  if (autoSaveTimeout) {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = null;
   }
 
   const nextId = pageSystem.deleteCompany(current.id);
