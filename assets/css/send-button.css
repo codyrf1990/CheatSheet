@@ -1,7 +1,7 @@
 /* Enhanced Send Button Animations and Effects */
 .send-button {
   transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  cursor: pointer;
+  cursor: url('../img/crosshair.png?v=2') 16 16, pointer !important;
   position: relative;
   overflow: visible;
   background: transparent;
