@@ -1,3 +1,5 @@
+@import url('post-matcher.css');
+
 :root {
   --solidcam-red: #c8102e;
   --solidcam-dark-red: #8b0000;
@@ -38,6 +40,25 @@ body {
   font-family: var(--font-system);
   color: var(--text-primary);
   background: #000;
+  cursor: url('../img/crosshair.png?v=2') 16 16, crosshair;
+}
+
+/* Global crosshair cursor */
+*,
+*::before,
+*::after {
+  cursor: url('../img/crosshair.png?v=2') 16 16, crosshair !important;
+}
+
+/* Override specific cursor types */
+button,
+a,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+select,
+[data-action] {
+  cursor: url('../img/crosshair.png?v=2') 16 16, crosshair !important;
 }
 
 a {
@@ -5532,7 +5553,7 @@ body.thanksgiving-active {
 /* Crosshair cursor for turkey hunting */
 .turkey-hunt-active,
 .turkey-hunt-active * {
-  cursor: crosshair !important;
+  cursor: url('../img/crosshair.png?v=2') 16 16, crosshair !important;
   user-select: none !important;
   -webkit-user-select: none !important;
   -moz-user-select: none !important;
@@ -5567,7 +5588,7 @@ body.thanksgiving-active {
 /* Make turkeys clickable through overlay */
 .bug {
   pointer-events: all !important;
-  cursor: crosshair !important;
+  cursor: url('../img/crosshair.png?v=2') 16 16, crosshair !important;
   overflow: hidden !important;
   will-change: transform;
   backface-visibility: hidden;
