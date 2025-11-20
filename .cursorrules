@@ -1,0 +1,32 @@
+# Project Rules & Guidelines
+
+## Project Structure
+- **Type**: Client-side Web Application (Vanilla JS, HTML, CSS).
+- **Frameworks**: None (No React, Vue, etc.). Uses `jsdom` for testing.
+- **Key Directories**:
+  - `assets/js/`: Core logic.
+  - `assets/css/`: Styles.
+  - `scripts/`: Build and test scripts.
+  - `docs/`: Documentation.
+
+## Testing Requirements
+- **Framework**: Custom `jsdom`-based harness.
+- **Running Tests**:
+  - Run all validations: `node scripts/validation-harness.js`
+  - Run specific test: `node scripts/<test-file>.js`
+- **Coverage Goal**: Maintain 100% functional coverage of `assets/js/` modules.
+
+## Documentation Standards
+- Keep `README.md` up-to-date with feature changes.
+- Maintain `docs/` for detailed reference and handoff materials.
+- Ensure code comments explain "why", not just "what".
+
+## Aesthetic Guidelines
+- **Visuals**: Rich, premium aesthetics. Use gradients, shadows, and animations.
+- **Interactions**: Hover effects, micro-animations, and smooth transitions.
+- **Theme**: SolidCAM Red (primary), Dark Mode (default).
+
+## Workflow
+- **Task Tracking**: Update `task.md` as progress is made.
+- **Planning**: Always create/update `implementation_plan.md` before major changes.
+- **Verification**: Run validation harness before requesting review.

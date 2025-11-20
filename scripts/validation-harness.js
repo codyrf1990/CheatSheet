@@ -1,6 +1,5 @@
 import { logger } from '../assets/js/debug-logger.js';
 import { testRaceCondition } from './test-race-condition.js';
-import { testMessageArchive } from './test-message-archive.js';
 
 /**
  * Run both validation checks and print aggregated results.
@@ -11,7 +10,6 @@ export async function runQuickValidation() {
   console.log('🚀 Starting automated validation suite...\n');
 
   logger.enable('state-queue');
-  logger.enable('message-archive');
 
   const startTime = Date.now();
   const results = {};
@@ -19,9 +17,6 @@ export async function runQuickValidation() {
   try {
     console.log('1️⃣  Race condition validation');
     results.raceCondition = await testRaceCondition();
-
-    console.log('\n2️⃣  Message archive validation');
-    results.messageArchive = await testMessageArchive();
   } catch (error) {
     logger.error('validation', 'Validation harness failed', error);
     results.error = error?.message ?? 'unexpected-error';
@@ -46,12 +41,6 @@ export async function runQuickValidation() {
       iterations: results.raceCondition?.completed ?? 'N/A',
       errors: results.raceCondition?.errors ?? 'N/A',
       integrity: results.raceCondition?.integrity ?? 'N/A'
-    },
-    'Message Archive': {
-      status: results.messageArchive?.passed ? '✅ PASS' : '❌ FAIL',
-      activeMessages: results.messageArchive?.activeInMemory ?? 'N/A',
-      archivedCount: results.messageArchive?.archivedCount ?? 'N/A',
-      archivingWorked: results.messageArchive?.archivingWorked ?? 'N/A'
     }
   };
 

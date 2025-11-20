@@ -20,5 +20,8 @@
   "type": "module",
   "dependencies": {
     "jsdom": "^22.1.0"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5"
   }
 }

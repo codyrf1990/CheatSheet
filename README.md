@@ -19,19 +19,6 @@ Interactive reference for the SolidCAM team that combines the package matrix, ma
    - `assets/js/app.js` – bootstraps the UI.
    - `assets/js` modules – `dom.js` (main render + behaviors), `calculator.js`, `email-templates.js`, and supporting helpers.
 
-### Chatbot architecture snapshot
-
-Phase 3 refactored the chatbot stack into small, testable modules:
-
-- `assets/js/chatbot/chatbot.js` – slim orchestrator that wires dependencies and forwards UI events.
-- `chatbot-constants.js` – shared enums, mode metadata, and the documented `FEATURE_TOGGLES` (all default to `true`; treat them as release toggles rather than runtime switches).
-- `chatbot-mode-manager.js` – activates modes, syncs the context processor, and orchestrates RAG ingestion/search.
-- `chatbot-conversation-manager.js` – conversation CRUD, archiving, capacity checks, and title derivation.
-- `chatbot-state-manager.js` – typed accessors around prompts, settings, API keys, sidebar widths, and debug snapshots.
-- `chatbot-event-handlers.js` – facade that implements UI callbacks using the managers above.
-
-See `docs/PHASE_3_TESTING_COMPLETE.md` for the latest regression notes.
-
 ### Tips & workflows
 
 - **Editing package content** - Enable "Edit Order" to drag rows/cards; toggle Add/Remove Bit for custom items. Use "Reset Order" to discard local changes or "Reset Checks" to clear selections only.
@@ -40,13 +27,13 @@ See `docs/PHASE_3_TESTING_COMPLETE.md` for the latest regression notes.
 
 ### Automated checks
 
-- Run `npm test` (Node 18+) to execute the aggregated smoke suite. It covers:
-  - Email template bootstrapping and selection (`scripts/test-email-templates.js`).
-  - Template authoring workflow (`scripts/test-email-add.js`).
-  - Package-bit add/move/remove persistence checks (`scripts/test-packages.js`).
-  - Master/sub checkbox state propagation and reset guardrails (`scripts/test-checkboxes.js`).
-  - Chatbot manager unit coverage (`scripts/test-chatbot-managers.js`) – exercises mode/state/conversation managers and verifies the documented feature toggles stay enabled.
-- Console output is JSON per check; anything with `"success": false` needs a follow-up.
+- Run `npm test` (Node 18+) to execute the comprehensive test suite. It covers:
+  - **Calculator Logic**: Functional tests for all operations, chaining, and state management.
+  - **Email Templates**: CRUD operations, search, and editor interactions.
+  - **Package Management**: Bit manipulation, drag-and-drop sorting, and state persistence.
+  - **System Validation**: Race condition checks and message archive integrity.
+- The test suite uses `jsdom` to simulate a browser environment and `c8` for code coverage analysis.
+- Run `npx c8 npm test` to generate a detailed coverage report.
 
 ### Manual QA checklist
 
@@ -80,6 +67,20 @@ See `docs/PHASE_3_TESTING_COMPLETE.md` for the latest regression notes.
 - `assets/css/main.css` - Background overlay and jump scare styling (lines 4531-4578)
 - `assets/js/data.js` - Added "Happy Thanksgiving Darryl!!" easter egg (line 176)
 - `assets/jump-scare/` - Scare image and audio assets
+
+### Thanksgiving Theme Implementation
+
+**Toggle:** Set `THANKSGIVING_MODE = true` (line 10 in `assets/js/dom.js`)
+
+**Components:**
+- **Turkey Hunt Game:** Interactive overlay where turkeys wander the screen.
+- **Mechanics:** Click turkeys to turn them into roast dinners. Tracks "Feasts" (total caught) and "Streaks" (consecutive catches without missing).
+- **Progressive Difficulty:** Turkeys move faster as your Feast count increases (caps at 50).
+- **Persistence:** Stats are saved to `localStorage` (`thanksgiving-turkey-stats`).
+
+**Files:**
+- `assets/js/turkey-controller.js` - Game logic, sprite animation, and state management.
+- `assets/thanksgiving/` - Sprites and assets.
 
 ### Support
 
