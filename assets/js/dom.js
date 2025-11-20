@@ -55,9 +55,9 @@ export function renderApp(mount) {
           <aside class="panels">
             ${renderMaintenanceCombinedPanel()}
             ${panels
-              .filter(p => !['standalone-modules', 'maintenance-skus', 'solidworks-maintenance'].includes(p.id))
-              .map(renderPanel)
-              .join('')}
+      .filter(p => !['standalone-modules', 'maintenance-skus', 'solidworks-maintenance'].includes(p.id))
+      .map(renderPanel)
+      .join('')}
             ${renderCalculatorPanel()}
           </aside>
         </section>
@@ -82,6 +82,55 @@ export function renderApp(mount) {
   updatePackageModeUI(root);
 
   root.addEventListener('click', event => handleRootClick(event, root));
+
+  // Tab-switching event handler for products modal
+  root.addEventListener('click', event => {
+    const tab = event.target.closest('.products-tab');
+    if (!tab) return;
+
+    const tabName = tab.dataset.tab;
+    const modal = tab.closest('[data-modal="current-products"]');
+    if (!modal) return;
+
+    // Update active tab
+    modal.querySelectorAll('.products-tab').forEach(t => t.classList.remove('is-active'));
+    tab.classList.add('is-active');
+
+    // Update content
+    const contentArea = modal.querySelector('[data-products-content]');
+    if (contentArea) {
+      let html = '';
+      switch (tabName) {
+        case 'overview':
+          html = renderProductsOverview();
+          break;
+        case 'milling':
+          html = renderMillingModules();
+          break;
+        case 'other':
+          html = renderOtherModules();
+          break;
+        case 'training':
+          html = renderTrainingDiscounts();
+          break;
+        case 'posts':
+          html = renderPostProcessors();
+          break;
+      }
+      contentArea.innerHTML = html;
+      contentArea.scrollTop = 0;
+    }
+  });
+
+  // Global click listener to close operations dropdown when clicking outside
+  document.addEventListener('click', event => {
+    const operationsMenu = document.querySelector('[data-operations-menu]');
+    const operationsDropdown = event.target.closest('.operations-dropdown');
+    if (operationsMenu && !operationsMenu.hidden && !operationsDropdown) {
+      operationsMenu.hidden = true;
+    }
+  });
+
   tableBody.addEventListener('change', event => handleTableChange(event, root));
   root.addEventListener('change', event => {
     const target = event.target;
@@ -369,6 +418,18 @@ function renderHeader() {
         <h1 class="header-title">Packages &amp; Maintenance Cheat Sheet</h1>
         <div class="link-row">
           ${headerLinks.map(renderHeaderLink).join('')}
+          <div class="operations-dropdown">
+            <button type="button"
+                    class="operations-button"
+                    data-action="toggle-operations"
+                    title="Operations menu">
+              Operations
+            </button>
+            <div class="operations-menu" data-operations-menu hidden>
+              <button data-action="open-sales-tax">Sales Tax Guide</button>
+              <button data-action="open-current-products">Product Catalog</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="header-spacer"></div>
@@ -505,8 +566,8 @@ function renderCompanyDropdown() {
             <div class="company-section-title">⭐ Favorites (${favorites.length})</div>
             <div class="company-list">
               ${favorites.map(company => {
-                const isCurrent = company.id === current.id;
-                return `
+    const isCurrent = company.id === current.id;
+    return `
                   <div class="company-list-item-wrapper">
                     <button
                       class="company-list-item${isCurrent ? ' active' : ''}"
@@ -525,7 +586,7 @@ function renderCompanyDropdown() {
                     >★</button>
                   </div>
                 `;
-              }).join('')}
+  }).join('')}
             </div>
           </div>
         ` : ''}
@@ -535,9 +596,9 @@ function renderCompanyDropdown() {
             <div class="company-section-title">🕒 Recent (${recent.length})</div>
             <div class="company-list">
               ${recent.map(company => {
-                const isCurrent = company.id === current.id;
-                const isFavorite = pageSystem.favoriteCompanyIds.includes(company.id);
-                return `
+    const isCurrent = company.id === current.id;
+    const isFavorite = pageSystem.favoriteCompanyIds.includes(company.id);
+    return `
                   <div class="company-list-item-wrapper">
                     <button
                       class="company-list-item${isCurrent ? ' active' : ''}"
@@ -556,7 +617,7 @@ function renderCompanyDropdown() {
                     >${isFavorite ? '★' : '☆'}</button>
                   </div>
                 `;
-              }).join('')}
+  }).join('')}
             </div>
           </div>
         ` : ''}
@@ -698,7 +759,7 @@ function renderAboutOverlay() {
     .join('');
 
   return `
-    <div class="about-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="about-overlay" role="dialog" aria-modal="true">
       <div class="about-modal">
         <div class="about-modal-head">
           <h3>About This Cheat Sheet</h3>
@@ -801,7 +862,7 @@ function renderAboutOverlay() {
 
 function renderSalesTaxModal() {
   return `
-    <div class="about-overlay" data-modal="sales-tax" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="about-overlay" data-modal="sales-tax" role="dialog" aria-modal="true">
       <div class="about-modal">
         <div class="about-modal-head">
           <h3>U.S. Sales Tax Guide 2025</h3>
@@ -855,207 +916,541 @@ function renderSalesTaxModal() {
 
 function renderCurrentProductsModal() {
   return `
-    <div class="about-overlay" data-modal="current-products" role="dialog" aria-modal="true" aria-hidden="true">
-      <div class="about-modal" style="max-width: 95vw; width: 1100px;">
-        <div class="about-modal-head">
-          <h3>Current Products & Licensing Guide</h3>
-          <button type="button" class="about-close" data-action="close-modal" aria-label="Close">×</button>
+    <div class="about-overlay" data-modal="current-products" role="dialog" aria-modal="true">
+      <div class="about-modal modal--products" style="max-width: 95vw; width: 900px; max-height: 85vh; display: flex; flex-direction: column;">
+        <div class="about-modal-head modal__header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h3 class="modal__title" style="margin: 0;">SolidCAM Product Catalog</h3>
+          <button type="button" class="about-close modal__close-btn" data-action="close-modal" aria-label="Close">×</button>
         </div>
-        <div class="about-modal-body">
-          <h4>Table of Contents</h4>
-          <ul>
-            <li><a href="#licensing-section" style="color: var(--solidcam-gold); text-decoration: none;">Licensing</a></li>
-            <li><a href="#products-section" style="color: var(--solidcam-gold); text-decoration: none;">Current Product List</a></li>
-            <li><a href="#training-section" style="color: var(--solidcam-gold); text-decoration: none;">Training</a></li>
-            <li><a href="#solidworks-section" style="color: var(--solidcam-gold); text-decoration: none;">SOLIDWORKS Product Codes</a></li>
-            <li><a href="#postprocessor-section" style="color: var(--solidcam-gold); text-decoration: none;">Post Processor Services</a></li>
-          </ul>
+        <div class="products-tabs">
+          <button class="products-tab is-active" data-tab="overview">Overview</button>
+          <button class="products-tab" data-tab="milling">Milling</button>
+          <button class="products-tab" data-tab="other">Other Modules</button>
+          <button class="products-tab" data-tab="training">Training</button>
+          <button class="products-tab" data-tab="posts">Post Processors</button>
+        </div>
+        <div class="about-modal-body products-content" data-products-content style="flex: 1; overflow-y: auto; padding-right: 0.5rem;">
+          ${renderProductsOverview()}
+        </div>
+      </div>
+    </div>
+  `;
+}
 
-          <h4 id="licensing-section">Licensing</h4>
-          <p><strong>Lic-Info</strong> is everything a current customer has plus their maintenance end date and should be included as the first item on all Estimates and Invoices for existing customers.</p>
-          <p>For Estimates use <strong>Lic-Opt</strong> if type of license is unknown but switch to correct type once reviewed with customer and before submitting for invoicing.</p>
-          <p><strong>Lic-PK</strong>, <strong>Lic-HD</strong> and <strong>Lic-Net</strong> are utilized to account for new seats.</p>
-          <p><strong>Lic-Upgrade</strong> is utilized to identify the license and/or profile the upgrade will be applied too.</p>
+function renderProductsOverview() {
+  return `
+    <div class="products-section">
+      <h4 class="products-section__title">Foundational Packages</h4>
+      <div class="products-table">
+        <div class="products-row products-row--header">
+          <span>Product</span>
+          <span>SKU</span>
+          <span>Description</span>
+        </div>
+        <div class="products-row">
+          <strong>SolidCAM Milling</strong>
+          <code>SC-Mill</code>
+          <span>2.5D toolpaths, 4th/5th indexing, C Axis Wrap, AFRM, Multi-Depth Drilling, HSS</span>
+        </div>
+        <div class="products-row">
+          <strong>SolidCAM Turning</strong>
+          <code>SC-Turn</code>
+          <span>Foundational 2 Axis Turning including Back Spindle</span>
+        </div>
+      </div>
+    </div>
 
-          <table style="font-size: 0.75rem; margin-top: 1rem;">
-            <thead>
-              <tr>
-                <th>Product/Service Name</th>
-                <th>SKU</th>
-                <th>Price</th>
-                <th>Sales Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>License - Options</td><td>Lic-Opt</td><td>0</td><td>INFORMATIONAL ONLY<br>Standalone Product Key (No Charge)<br>Hardware Dongle ($150 incl. S&H)<br>Networked Product Key ($600 per seat)<br>Timed License 45 days (Payment)</td></tr>
-              <tr><td>License - Info</td><td>Lic-Info</td><td>0</td><td>Current License Information<br>License #(s): [SC Lic #] [SW Lic #]<br>Maintenance End Date: [Enter Date]</td></tr>
-              <tr><td>License - Upgrade</td><td>Lic-Upgrade</td><td>0</td><td>Upgrade License<br>License #:<br>Profile #:</td></tr>
-              <tr><td>License - Product Key</td><td>Lic-PK</td><td>0</td><td>Standalone Product Key License<br>License #:</td></tr>
-              <tr><td>License - Networked</td><td>Lic-Net</td><td>600</td><td>Network License<br>License #:<br>Profile Info:</td></tr>
-              <tr><td>License - Hardware Dongle</td><td>Lic-HD</td><td>150</td><td>Physical Hardware Dongle<br>Dongle #:</td></tr>
-              <tr><td>License - Convert / Replace</td><td>Lic-Chg</td><td>200</td><td>SolidCAM License Conversions and Replacements<br>License #:</td></tr>
-              <tr><td>License - NX</td><td>Lic-NX</td><td>600</td><td>Networked License Option iMachining for NX (per seat cost)</td></tr>
-              <tr><td>License - EDU</td><td>Lic-EDU</td><td>0</td><td>Network Product Key (License Termed to One Year)</td></tr>
-            </tbody>
-          </table>
+    <div class="products-section">
+      <h4 class="products-section__title">SW Bundles</h4>
+      <div class="products-table">
+        <div class="products-row products-row--header">
+          <span>Product</span>
+          <span>SKU</span>
+          <span>Note</span>
+        </div>
+        <div class="products-row">
+          <strong>Milling + SOLIDWORKS</strong>
+          <code>SW-SC-Mill</code>
+          <span>Adjust description to specific SW version</span>
+        </div>
+        <div class="products-row">
+          <strong>Turning + SOLIDWORKS</strong>
+          <code>SW-SC-Turn</code>
+          <span>Adjust description to specific SW version</span>
+        </div>
+      </div>
+    </div>
 
-          <h4 id="products-section" style="margin-top: 2rem;">Current Product List</h4>
-          <p>Utilize SKU numbers below when searching for a product in the line item on an estimate. All seats can start with SolidCAM Milling or SolidCAM Turning and then build on utilizing the "Upgrade Packages" and "Modules" sections below. SolidCAM Milling and Turning can be combined to create a Mill-Turn type seat.</p>
+    <div class="products-section">
+      <h4 class="products-section__title">Upgrade Packages</h4>
+      <div class="products-table">
+        <div class="products-row products-row--header">
+          <span>Package</span>
+          <span>SKU</span>
+          <span>Includes</span>
+        </div>
+        <div class="products-row">
+          <strong>Advanced Milling</strong>
+          <code>SC-Mill-Adv</code>
+          <span>iMachining 2D, Edge Breaking, Advanced Machine Simulation</span>
+        </div>
+        <div class="products-row">
+          <strong>3D High Performance</strong>
+          <code>SC-Mill-3D</code>
+          <span>iMachining 3D, HSM (Requires iMachining 2D)</span>
+        </div>
+        <div class="products-row">
+          <strong>5 Axis Milling</strong>
+          <code>SC-Mill-5Axis</code>
+          <span>Sim 4/5 Axis, Auto 3+2, Rotary, HSM to 5X Conversion, Geodesic, SWARF, Multiaxis</span>
+        </div>
+      </div>
+    </div>
 
-          <table style="font-size: 0.75rem; margin-top: 1rem;">
-            <thead>
-              <tr>
-                <th>Product/Service Name</th>
-                <th>SKU</th>
-                <th>Sales Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">Foundational Packages</td></tr>
-              <tr><td>SolidCAM Milling</td><td>SC-Mill</td><td>Includes 2.5D toolpaths and strategies for prismatic parts, plus 4th and 5th indexing, C Axis Wrap, Automatic Feature Recognition (AFRM), Multi-Depth Drilling and High-Speed Surfacing (HSS).</td></tr>
-              <tr><td>SolidCAM Turning</td><td>SC-Turn</td><td>Foundational 2 Axis Turning module including Back Spindle.</td></tr>
+    <div class="products-section">
+      <h4 class="products-section__title">SOLIDWORKS Product Codes</h4>
+      <div class="products-grid">
+        <div class="product-code-item">
+          <code>SW-P</code>
+          <span>Parts</span>
+        </div>
+        <div class="product-code-item">
+          <code>SW-PA</code>
+          <span>Parts & Assemblies</span>
+        </div>
+        <div class="product-code-item">
+          <code>SW-Std</code>
+          <span>Standard</span>
+        </div>
+        <div class="product-code-item">
+          <code>SW-Pro</code>
+          <span>Professional</span>
+        </div>
+        <div class="product-code-item">
+          <code>SW-Std-Net</code>
+          <span>Standard Networked</span>
+        </div>
+        <div class="product-code-item">
+          <code>SW-Pro-Net</code>
+          <span>Professional Networked</span>
+        </div>
+      </div>
+      <p class="products-note">Add <code>-Maint</code> suffix for maintenance SKUs</p>
+    </div>
+  `;
+}
 
-              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">SW Bundles</td></tr>
-              <tr><td>SolidCAM Milling Bundled with SOLIDWORKS</td><td>SW-SC-Mill</td><td>Adjust description to specific version of SW</td></tr>
-              <tr><td>SolidCAM Turning Bundled with SOLIDWORKS</td><td>SW-SC-Turn</td><td>Adjust description to specific version of SW</td></tr>
+function renderMillingModules() {
+  return `
+    <div class="products-section">
+      <h4 class="products-section__title">Milling Modules</h4>
+      <div class="products-list">
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>2.5D Milling + AFRM</strong>
+            <code>SC-25M</code>
+          </div>
+          <p>Profile, Pocket, Drilling, Automatic Feature Recognition, Multi-Depth-Drilling, 4th/5th Indexing, C Axis Wrap</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>High-Speed Surfacing (HSS)</strong>
+            <code>SC-HSS</code>
+          </div>
+          <p>Surface machining strategies for efficient, smooth, gouge-free toolpaths on prismatic and 3D parts</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>High-Speed Roughing (HSR)</strong>
+            <code>SC-HSR</code>
+          </div>
+          <p>Overall roughing of complex 3D parts (molds/dies), optimized for high-speed continuous motion</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>High-Speed Machining (HSM)</strong>
+            <code>SC-HSM</code>
+          </div>
+          <p>Roughing and finishing of complex 3D parts, includes HSR</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>iMachining 2D</strong>
+            <code>SC-iMach2d</code>
+          </div>
+          <p>Constant tool engagement, knowledge-based Technology Wizard for feeds/speeds/step-downs</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>iMachining 3D</strong>
+            <code>SC-iMach3D</code>
+          </div>
+          <p>Automated roughing and rest roughing for 3D parts</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Simultaneous 4 Axis</strong>
+            <code>SC-Sim4x</code>
+          </div>
+          <p>Continuous 4-axis movement with collision checking</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Simultaneous 5 Axis Standard</strong>
+            <code>SC-Sim5x</code>
+          </div>
+          <p>Auto 3+2 Roughing, Rotary, HSM to 5X Conversion, Contour, Multi Axis Drilling, Geodesic, SWARF</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Edge Breaking</strong>
+            <code>SC-EdgeBreak</code>
+          </div>
+          <p>Automatic deburring with precise tool orientation</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Edge Trimming</strong>
+            <code>SC-EdgeTrim</code>
+          </div>
+          <p>Precise trimming of thin materials</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Auto 3+2 Roughing</strong>
+            <code>SC-Auto32</code>
+          </div>
+          <p>Intelligent 3+2 axis positioning and machining</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Multiaxis</strong>
+            <code>SC-Multiaxis</code>
+          </div>
+          <p>Material removal on complex parts (impellers, turbine blades)</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Port</strong>
+            <code>SC-Port</code>
+          </div>
+          <p>Intake/exhaust ducts with tapered lollipop tools</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Multiblade</strong>
+            <code>SC-Multiblade</code>
+          </div>
+          <p>Impellers and bladed disks machining</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
-              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">Upgrade Packages</td></tr>
-              <tr><td>Advanced Milling</td><td>SC-Mill-Adv</td><td>Includes iMachining 2D, Edge Breaking and Advanced Machine Simulation.</td></tr>
-              <tr><td>3D High Performance</td><td>SC-Mill-3D</td><td>Includes iMachining 3D and High-Speed Machining (HSM). [Requires iMachining 2D]</td></tr>
-              <tr><td>5 Axis Milling</td><td>SC-Mill-5Axis</td><td>Includes Simultaneous 4 and 5 Axis allowing for the machining of complex geometries with continuous 5-axis movement, Auto 3+2 Roughing, Rotary, HSM to 5 Axis Conversion, Multi Axis Drilling, Geodesic, Contour, SWARF and Multiaxis Machining.</td></tr>
+function renderOtherModules() {
+  return `
+    <div class="products-section">
+      <h4 class="products-section__title">Turning Modules</h4>
+      <div class="products-list">
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Multi-Turret Sync</strong>
+            <code>SC-MTS</code>
+          </div>
+          <p>Coordinates multiple turrets for simultaneous machining operations</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Swiss</strong>
+            <code>SC-Swiss</code>
+          </div>
+          <p>Advanced programming for Swiss CNC machines</p>
+        </div>
+      </div>
+    </div>
 
-              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">Milling Modules</td></tr>
-              <tr><td>2.5D Milling + AFRM</td><td>SC-25M</td><td>Standard 2.5D Milling Operations including Profile, Pocket, and Drilling. Automatic Feature Recognition, Multi-Depth-Drilling; 4th, 5th Indexing and C Axis Wrap.</td></tr>
-              <tr><td>High-Speed Surfacing (HSS)</td><td>SC-HSS</td><td>Surface machining strategies that produce efficient, smooth, gouge-free, and optimal toolpaths to finish the selected surfaces on prismatic and 3D parts.</td></tr>
-              <tr><td>High-Speed Roughing (HSR)</td><td>SC-HSR</td><td>Designed for the overall roughing of complex 3D parts, such as molds and dies. Optimized for high-speed, continuous machine motion and productivity.</td></tr>
-              <tr><td>High-Speed Machining (HSM)</td><td>SC-HSM</td><td>Designed for the overall machining of complex 3D parts, such as molds and dies in both roughing and finishing. Optimized for high-speed, continuous machine motion and productivity. [Includes HSR]</td></tr>
-              <tr><td>iMachining 2D</td><td>SC-iMach2d</td><td>Generates highly efficient toolpaths for roughing and pocketing by maintaining constant tool engagement and optimizing cutting conditions.</td></tr>
-              <tr><td>iMachining 3D</td><td>SC-iMach3D</td><td>Automates roughing and rest roughing for 3D parts, using optimized toolpaths and cutting conditions to improve efficiency and tool life.</td></tr>
-              <tr><td>Simultaneous 4 Axis</td><td>SC-Sim4x</td><td>Advanced control over tool paths and collision checking, allowing for the machining of complex geometries with continuous 4 Axis movement.</td></tr>
-              <tr><td>Simultaneous 5 Axis Standard</td><td>SC-Sim5x</td><td>Includes: Simultaneous 5 Axis, Auto 3+2 Roughing, Rotary, HSM to 5 Axis Conversion, Contour 5 Axis Machining, Multi Axis Drilling, Geodesic and SWARF.</td></tr>
-              <tr><td>Edge Breaking</td><td>SC-EdgeBreak</td><td>Automatically deburrs sharp edges with precise tool orientation for enhanced part safety and quality.</td></tr>
-              <tr><td>Edge Trimming</td><td>SC-EdgeTrim</td><td>Precise tool paths for trimming thin materials, offering flexible tool orientation options.</td></tr>
-              <tr><td>Auto 3+2 Roughing</td><td>SC-Auto32</td><td>Intelligent 3+2 axis positioning and machining.</td></tr>
-              <tr><td>Multiaxis</td><td>SC-Multiaxis</td><td>Efficient material removal on complex parts using simultaneous multi-axis movements.</td></tr>
-              <tr><td>Port</td><td>SC-Port</td><td>Machine intake and exhaust ducts as well as inlets or outlets of pumps, in castings or steel blocks with tapered lollipop tools.</td></tr>
-              <tr><td>Multiblade</td><td>SC-Multiblade</td><td>Easily handles impellers and bladed disks, with multiple strategies to efficiently rough and finish each part.</td></tr>
+    <div class="products-section">
+      <h4 class="products-section__title">Add-on Modules</h4>
+      <div class="products-list">
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Machine Simulation</strong>
+            <code>SC-MachSim</code>
+          </div>
+          <p>Advanced collision detection and toolpath verification using 3D machine models</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Solid Probe</strong>
+            <code>SC-Probe</code>
+          </div>
+          <p>Home definition, On-Machine Verification, Tool Presetter Support, Probe cycle support</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Vericut Integration</strong>
+            <code>SC-Vericut</code>
+          </div>
+          <p>Integration for Vericut G-code Simulation software</p>
+        </div>
+      </div>
+    </div>
 
-              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">Turning Modules</td></tr>
-              <tr><td>Multi-Turret Sync</td><td>SC-MTS</td><td>Coordinates multiple turrets in a CNC machine, enabling simultaneous machining operations.</td></tr>
-              <tr><td>Swiss</td><td>SC-Swiss</td><td>Advanced programming for Swiss CNC machines.</td></tr>
+    <div class="products-section">
+      <h4 class="products-section__title">SolidShop</h4>
+      <div class="products-list">
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>CIMCO Editor</strong>
+            <code>SolidShop-Editor</code>
+          </div>
+          <p>G-Code editor with reliable editing, simulation and communication tools</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>SolidCAM for Operators</strong>
+            <code>SC-4Op</code>
+          </div>
+          <p>Shop floor program modifications and simulations (Windows tablets)</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Operators - Sim Only</strong>
+            <code>SC-4Op-Sim</code>
+          </div>
+          <p>Simulation access only at the machine</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
-              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">Add-on Modules</td></tr>
-              <tr><td>Machine Simulation</td><td>SC-MachSim</td><td>Advanced Machine Simulation features help detect potential collisions and verify tool paths.</td></tr>
-              <tr><td>Solid Probe - Home + Measurement</td><td>SC-Probe</td><td>Solid Probe Advanced includes: Easy Home definition, On-Machine Verification, Tool Presetter Support.</td></tr>
-              <tr><td>Vericut Integration</td><td>SC-Vericut</td><td>Integration for Vericut G-code Simulation software</td></tr>
+function renderTrainingDiscounts() {
+  return `
+    <div class="products-section">
+      <h4 class="products-section__title">Training Credits</h4>
+      <p class="products-note">Credits apply to 1 hour remote training or $100 toward onsite training</p>
+      <div class="products-grid">
+        <div class="product-code-item">
+          <code>SC-Mill</code>
+          <span>2 credits</span>
+        </div>
+        <div class="product-code-item">
+          <code>SC-Mill-Adv</code>
+          <span>1 credit</span>
+        </div>
+        <div class="product-code-item">
+          <code>SC-Mill-3D</code>
+          <span>2 credits</span>
+        </div>
+        <div class="product-code-item">
+          <code>SC-Mill-5Axis</code>
+          <span>2 credits</span>
+        </div>
+        <div class="product-code-item">
+          <code>SC-MTS</code>
+          <span>2 credits</span>
+        </div>
+      </div>
+    </div>
 
-              <tr><td colspan="3" style="background: rgba(212, 175, 55, 0.2); font-weight: 600;">SolidShop</td></tr>
-              <tr><td>CIMCO Editor</td><td>SolidShop-Editor</td><td>The G-Code editor-of-choice for professional CNC programmers.</td></tr>
-              <tr><td>SolidCAM for Operators</td><td>SC-4Op</td><td>Streamlines shop floor operations by providing access to program modifications and simulations at the machine.</td></tr>
-              <tr><td>SolidCAM for Operators - Simulation Only</td><td>SC-4Op-Sim</td><td>Provides access to program simulations at the machine and to tool, workholding and CAM data.</td></tr>
-            </tbody>
-          </table>
+    <div class="products-section">
+      <h4 class="products-section__title">Training Hours & Onsite</h4>
+      <div class="products-table">
+        <div class="products-row products-row--header">
+          <span>SKU</span>
+          <span>Description</span>
+          <span>Price</span>
+        </div>
+        <div class="products-row">
+          <code>Train-2hr</code>
+          <span>One 2-hour 1-on-1 web training (expires 12 mo)</span>
+          <strong>$350</strong>
+        </div>
+        <div class="products-row">
+          <code>Train-8hr</code>
+          <span>Four 2-hour 1-on-1 web sessions (expires 12 mo)</span>
+          <strong>$1,295</strong>
+        </div>
+        <div class="products-row">
+          <code>Train-Onsite</code>
+          <span>Onsite training per day (+ travel costs)</span>
+          <strong>$2,500</strong>
+        </div>
+      </div>
+    </div>
 
-          <h4 id="training-section" style="margin-top: 2rem;">Training Credits Hours and Onsite</h4>
-          <p><strong>Training Credits:</strong> SC-Train-Credit<br>Applicable to new and existing customers when purchasing a new seat of software. Credits can be used for 1 hour of Instructor Led Remote Training or $100 towards the cost of Onsite Training.</p>
+    <div class="products-section">
+      <h4 class="products-section__title">Discounts</h4>
+      <div class="products-list">
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Standard Promotions</strong>
+          </div>
+          <p>10% off 2nd seat+ on single order OR up to 5% discretionary</p>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Renewals</strong>
+          </div>
+          <p>Year 2: 5% off • Year 3: 10% off</p>
+        </div>
+      </div>
+      <div class="products-table" style="margin-top: 0.75rem;">
+        <div class="products-row products-row--header">
+          <span>Code</span>
+          <span>Usage</span>
+        </div>
+        <div class="products-row">
+          <code>Discount-Software</code>
+          <span>All software discounts</span>
+        </div>
+        <div class="products-row">
+          <code>Discount-Post</code>
+          <span>Post discounts (requires Post Manager approval)</span>
+        </div>
+        <div class="products-row">
+          <code>VCD</code>
+          <span>Valued Customer Discount (pre-2025 CLR customers)</span>
+        </div>
+        <div class="products-row">
+          <code>Tier-Discount</code>
+          <span>Based on Total Software Value (TSV)</span>
+        </div>
+      </div>
+      <div class="products-note" style="margin-top: 0.75rem;">
+        <strong>Tier Discounts (based on TSV):</strong><br>
+        Tier 3 ($100k-$199k): 10% off<br>
+        Tier 2 ($200k-$299k): 15% off<br>
+        Tier 1 ($300k+): 20% off
+      </div>
+    </div>
+  `;
+}
 
-          <table style="font-size: 0.75rem; margin-top: 1rem;">
-            <thead>
-              <tr><th>Product Code</th><th>Training Credit to Apply</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>SC-Mill</td><td>2</td></tr>
-              <tr><td>SC-Mill-Adv</td><td>1</td></tr>
-              <tr><td>SC-Mill-3D</td><td>2</td></tr>
-              <tr><td>SC-Mill-5Axis</td><td>2</td></tr>
-              <tr><td>SC-MTS</td><td>2</td></tr>
-            </tbody>
-          </table>
+function renderPostProcessors() {
+  return `
+    <div class="products-section">
+      <h4 class="products-section__title">Post Processor Services</h4>
+      <p class="products-note">Lead time: 4-6 weeks. * = Simulation required</p>
+      <div class="products-list">
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>3X Milling</strong>
+            <code>Post-3X</code> / <code>Post-3X-Derv</code>
+          </div>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>4X Milling</strong>
+            <code>Post-4X</code> / <code>Post-4X-Derv</code>
+          </div>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>5X Milling</strong>
+            <code>Post-5X</code> / <code>Post-5X-Derv</code>
+          </div>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Turning</strong>
+            <code>Post-Turn</code> / <code>Post-Turn-Derv</code>
+          </div>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Mill-Turn 1 Channel</strong>
+            <code>Post-MT1</code> / <code>Post-MT1-Derv</code>
+          </div>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Mill-Turn 2 Channel *</strong>
+            <code>Post-MT2</code> / <code>Post-MT2-Derv</code>
+          </div>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Mill-Turn 3+ Channel *</strong>
+            <code>Post-MT3</code> / <code>Post-MT3-Derv</code>
+          </div>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Swiss Basic *</strong>
+            <code>Post-Swiss</code> / <code>Post-Swiss-Derv</code>
+          </div>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Swiss Advanced *</strong>
+            <code>Post-Swiss-Adv</code> / <code>Post-Swiss-Adv-Derv</code>
+          </div>
+        </div>
+        <div class="product-item">
+          <div class="product-item__header">
+            <strong>Swiss 3+ Channel *</strong>
+            <code>Post-Swiss-3Ch</code> / <code>Post-Swiss-3Ch-Derv</code>
+          </div>
+        </div>
+      </div>
+    </div>
 
-          <table style="font-size: 0.75rem; margin-top: 1.5rem;">
-            <thead>
-              <tr><th>Product Code</th><th>Description</th><th>Price</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>Train-2hr</td><td>SolidCAM 1-on-1 Web Based Training with a certified Instructor - One 2-hour training session. (Unused Hours Expire 12 Months from Purchase)</td><td>$350</td></tr>
-              <tr><td>Train-8hr</td><td>SolidCAM 1-on-1 Web Based Training with a certified Instructor - Four 2-hour training session. (Unused Hours Expire 12 Months from Purchase)</td><td>$1295</td></tr>
-              <tr><td>Train-Onsite</td><td>SolidCAM Onsite Training with a certified instructor. Cost per day. (Additional travel costs may apply)</td><td>$2500</td></tr>
-            </tbody>
-          </table>
+    <div class="products-section">
+      <h4 class="products-section__title">Machine Simulation Development</h4>
+      <p class="products-note">Customer must supply SolidWorks models of machine</p>
+      <div class="products-grid">
+        <div class="product-code-item">
+          <code>PSim-3X</code>
+          <span>3X Milling</span>
+        </div>
+        <div class="product-code-item">
+          <code>PSim-4X</code>
+          <span>4X Milling</span>
+        </div>
+        <div class="product-code-item">
+          <code>PSim-5X</code>
+          <span>5X Milling</span>
+        </div>
+        <div class="product-code-item">
+          <code>PSim-Turn</code>
+          <span>Turning</span>
+        </div>
+        <div class="product-code-item">
+          <code>PSim-MT1</code>
+          <span>Mill-Turn 1Ch</span>
+        </div>
+        <div class="product-code-item">
+          <code>PSim-MT2</code>
+          <span>Mill-Turn 2Ch</span>
+        </div>
+        <div class="product-code-item">
+          <code>PSim-MT3</code>
+          <span>Mill-Turn 3+Ch</span>
+        </div>
+        <div class="product-code-item">
+          <code>PSim-Swiss</code>
+          <span>Swiss Basic</span>
+        </div>
+        <div class="product-code-item">
+          <code>PSim-Swiss-Adv</code>
+          <span>Swiss Advanced</span>
+        </div>
+        <div class="product-code-item">
+          <code>PSim-Swiss-3Ch</code>
+          <span>Swiss 3+Ch</span>
+        </div>
+      </div>
+    </div>
 
-          <h4 id="solidworks-section" style="margin-top: 2rem;">SOLIDWORKS Product Codes</h4>
-          <p>When creating a SW-SC bundle, add to the hidden line items under SW-SC-Mill or SW-SC-Turn with both the software and maintenance for SW.</p>
-
-          <table style="font-size: 0.75rem; margin-top: 1rem;">
-            <thead>
-              <tr><th>Product/Service Name</th><th>SKU</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>SOLIDWORKS Parts</td><td>SW-P</td></tr>
-              <tr><td>SOLIDWORKS Parts Maintenance</td><td>SW-P-Maint</td></tr>
-              <tr><td>SOLIDWORKS Parts and Assemblies</td><td>SW-PA</td></tr>
-              <tr><td>SOLIDWORKS Parts And Assemblies Maintenance</td><td>SW-PA-Maint</td></tr>
-              <tr><td>SOLIDWORKS Standard</td><td>SW-Std</td></tr>
-              <tr><td>SOLIDWORKS Standard Maintenance</td><td>SW-Std-Maint</td></tr>
-              <tr><td>SOLIDWORKS Standard Networked</td><td>SW-Std-Net</td></tr>
-              <tr><td>SOLIDWORKS Standard Networked Maintenance</td><td>SW-Std-Net-Maint</td></tr>
-              <tr><td>SOLIDWORKS Professional</td><td>SW-Pro</td></tr>
-              <tr><td>SOLIDWORKS Professional Maintenance</td><td>SW-Pro-Maint</td></tr>
-              <tr><td>SOLIDWORKS Professional Networked</td><td>SW-Pro-Net</td></tr>
-              <tr><td>SOLIDWORKS Professional Networked Maintenance</td><td>SW-Pro-Net-Maint</td></tr>
-            </tbody>
-          </table>
-
-          <h4 id="postprocessor-section" style="margin-top: 2rem;">Post Processor Services</h4>
-          <p style="font-style: italic;">* Simulation is required for these configurations.</p>
-
-          <table style="font-size: 0.72rem; margin-top: 1rem;">
-            <thead>
-              <tr><th>Product/Service Name</th><th>SKU</th><th>Sales Description</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>3X Milling Post Processor</td><td>Post-3X</td><td>Custom Post Processor: Lead time is 4-6 Weeks from the time SolidCAM technical receives the required information from the customer.</td></tr>
-              <tr><td>3X Milling Post Processor - Derivative</td><td>Post-3X-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>4X Milling Post Processor</td><td>Post-4X</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>4X Milling Post Processor - Derivative</td><td>Post-4X-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>5X Milling Post Processor</td><td>Post-5X</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>5X Milling Post Processor - Derivative</td><td>Post-5X-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Mill-Turn 1 Channel Post Processor</td><td>Post-MT1</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Mill-Turn 1 Channel Post Processor - Derivative</td><td>Post-MT1-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Mill-Turn 2 Channel Post Processor *</td><td>Post-MT2</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Mill-Turn 2 Channel Post Processor - Derivative</td><td>Post-MT2-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Mill-Turn 3+ Channel Post Processor *</td><td>Post-MT3</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Mill-Turn 3+ Channel Post Processor - Derivative</td><td>Post-MT3-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Swiss Basic Post Processor *</td><td>Post-Swiss</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Swiss Basic Post Processor - Derivative</td><td>Post-Swiss-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Swiss Advanced Post Processor *</td><td>Post-Swiss-Adv</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Swiss Advanced Post Processor - Derivative</td><td>Post-Swiss-Adv-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Swiss 3+ Channel Post Processor *</td><td>Post-Swiss-3Ch</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Swiss 3+ Channel Post Processor - Derivative</td><td>Post-Swiss-3Ch-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Turning Post Processor</td><td>Post-Turn</td><td>Custom Post Processor: Lead time is 4-6 Weeks</td></tr>
-              <tr><td>Turning Post Processor - Derivative</td><td>Post-Turn-Derv</td><td>Custom Post Processor - Derivative: Lead time is 4-6 Weeks</td></tr>
-            </tbody>
-          </table>
-
-          <table style="font-size: 0.72rem; margin-top: 1.5rem;">
-            <thead>
-              <tr><th>Machine Simulation Development</th><th>SKU</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>3X Milling Machine Simulation Development</td><td>PSim-3X</td></tr>
-              <tr><td>4X Milling Machine Simulation Development</td><td>PSim-4X</td></tr>
-              <tr><td>5X Milling Machine Simulation Development</td><td>PSim-5X</td></tr>
-              <tr><td>Mill-Turn 1 Channel Machine Simulation Development</td><td>PSim-MT1</td></tr>
-              <tr><td>Mill-Turn 2 Channel Machine Simulation Development</td><td>PSim-MT2</td></tr>
-              <tr><td>Mill-Turn 3+ Channel Machine Simulation Development</td><td>PSim-MT3</td></tr>
-              <tr><td>Swiss Basic Machine Simulation Development</td><td>PSim-Swiss</td></tr>
-              <tr><td>Swiss Advanced Machine Simulation Development</td><td>PSim-Swiss-Adv</td></tr>
-              <tr><td>Swiss 3+ Channel Machine Simulation Development</td><td>PSim-Swiss-3Ch</td></tr>
-              <tr><td>Turning Machine Simulation Development</td><td>PSim-Turn</td></tr>
-            </tbody>
-          </table>
-
-          <p style="margin-top: 1rem; font-size: 0.85rem;"><strong>Note:</strong> Swiss Basic configurations are generally limited to (up to) 6-Axes with Gang configurations. Greater than 6 Axes, Turrets and B-Axis heads are considered as advanced configurations. Please confirm with the post team when ordering for the classification of Swiss machine.</p>
+    <div class="products-section">
+      <h4 class="products-section__title">Maintenance</h4>
+      <div class="product-item">
+        <div class="product-item__header">
+          <strong>Post Processor Maintenance</strong>
+          <code>Post-Maint</code>
         </div>
       </div>
     </div>
@@ -1269,7 +1664,7 @@ function initTurkeyHunt() {
   });
 
   // Expose streak functions for turkey controller
-  window.resetStreakCounter = window.resetStreakCounter || function() {};
+  window.resetStreakCounter = window.resetStreakCounter || function () { };
 
   // Streak timeout: reset after 4 seconds of no kills
   let lastKillTime = 0;
@@ -1551,10 +1946,15 @@ function handleRootClick(event, root) {
     case 'close-about':
       closeAbout(root);
       break;
+    case 'toggle-operations':
+      handleToggleOperations();
+      break;
     case 'open-sales-tax':
+      closeOperationsMenu();
       openModal(root, 'sales-tax');
       break;
     case 'open-current-products':
+      closeOperationsMenu();
       openModal(root, 'current-products');
       break;
     case 'close-modal':
@@ -1562,6 +1962,13 @@ function handleRootClick(event, root) {
       break;
     default:
       break;
+  }
+}
+
+function handleToggleOperations() {
+  const menu = document.querySelector('[data-operations-menu]');
+  if (menu) {
+    menu.hidden = !menu.hidden;
   }
 }
 
@@ -1956,10 +2363,10 @@ function collectState(root) {
     const bitsList = row.querySelector('ul.bits');
     const bits = bitsList
       ? Array.from(bitsList.querySelectorAll('li')).map(li => {
-          const checkbox = li.querySelector('.bit-checkbox');
-          const text = li.querySelector('span')?.textContent.trim() ?? '';
-          return { text, checked: checkbox?.checked ?? false };
-        })
+        const checkbox = li.querySelector('.bit-checkbox');
+        const text = li.querySelector('span')?.textContent.trim() ?? '';
+        return { text, checked: checkbox?.checked ?? false };
+      })
       : [];
 
     const groups = Array.from(row.querySelectorAll('.master-bit')).map(group => {
@@ -2444,6 +2851,11 @@ function closeModal(root) {
   });
 }
 
+function closeOperationsMenu() {
+  const menu = document.querySelector('[data-operations-menu]');
+  if (menu) menu.hidden = true;
+}
+
 function setupModalBackdropHandlers(root) {
   const overlays = root.querySelectorAll('.about-overlay');
   overlays.forEach(overlay => {
@@ -2510,8 +2922,8 @@ function attachPageSystemListeners(root) {
     // CRITICAL FIX: Store reference so it can be removed later
     documentClickListener = (e) => {
       if (!helpTooltip.hasAttribute('hidden') &&
-          !helpTooltip.contains(e.target) &&
-          !helpBtn.contains(e.target)) {
+        !helpTooltip.contains(e.target) &&
+        !helpBtn.contains(e.target)) {
         helpTooltip.setAttribute('hidden', '');
       }
     };
@@ -3186,9 +3598,9 @@ function renderBrowseAllModal() {
             <div class="browse-letter-group">
               <div class="browse-letter-header">${letter}</div>
               ${grouped[letter].map(company => {
-                const isCurrent = company.id === current.id;
-                const isFavorite = pageSystem.favoriteCompanyIds.includes(company.id);
-                return `
+    const isCurrent = company.id === current.id;
+    const isFavorite = pageSystem.favoriteCompanyIds.includes(company.id);
+    return `
                   <div class="browse-company-item">
                     <button
                       class="browse-company-btn${isCurrent ? ' active' : ''}"
@@ -3207,7 +3619,7 @@ function renderBrowseAllModal() {
                     >${isFavorite ? '★' : '☆'}</button>
                   </div>
                 `;
-              }).join('')}
+  }).join('')}
             </div>
           `).join('')}
         </div>
