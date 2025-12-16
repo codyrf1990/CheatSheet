@@ -1200,8 +1200,8 @@ a {
   border-radius: 12px;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.5);
   min-width: 280px;
-  max-height: 460px;
-  overflow: hidden;
+  max-height: min(500px, 75vh);
+  overflow-y: auto;
   z-index: 1000;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -1268,6 +1268,11 @@ a {
   border-color: rgba(255, 255, 255, 0.12);
   color: #ffffff;
   transform: translateX(1px);
+}
+
+.company-action-btn--danger {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.2);
 }
 
 .company-action-btn--danger:hover {
@@ -1786,6 +1791,167 @@ a {
 }
 
 .cloud-modal-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+/* Cloud Sync Choice Dialog */
+.cloud-sync-choice-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  animation: fadeIn 0.15s ease;
+}
+
+.cloud-sync-choice-dialog {
+  background: linear-gradient(135deg, rgba(42, 42, 42, 0.98), rgba(24, 24, 24, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  width: 90%;
+  max-width: 440px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(20px);
+  padding: 1.5rem;
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cloud-sync-choice-dialog h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--solidcam-gold);
+}
+
+.cloud-sync-choice-dialog p {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.sync-choice-comparison {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.sync-choice-local,
+.sync-choice-cloud {
+  flex: 1;
+  text-align: center;
+}
+
+.sync-choice-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.sync-choice-value {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sync-choice-date {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.sync-choice-vs {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.sync-choice-warning {
+  font-size: 0.82rem !important;
+  color: #f59e0b !important;
+  text-align: center;
+  padding: 0.5rem;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 6px;
+  margin-bottom: 1rem !important;
+}
+
+.sync-choice-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sync-choice-btn {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+  border: none;
+  text-align: center;
+}
+
+.sync-choice-btn:hover {
+  transform: translateY(-1px);
+}
+
+.sync-choice-pull {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.sync-choice-pull:hover {
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.sync-choice-push {
+  background: linear-gradient(135deg, var(--solidcam-gold), rgba(212, 175, 55, 0.7));
+  color: #1a1a1a;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
+}
+
+.sync-choice-push:hover {
+  box-shadow: 0 6px 16px rgba(212, 175, 55, 0.3);
+}
+
+.sync-choice-cancel {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: var(--text-secondary);
+}
+
+.sync-choice-cancel:hover {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
 }
@@ -5579,4 +5745,233 @@ body.thanksgiving-active {
   0% { transform: scale(1); text-shadow: 0 0 6px rgba(173, 255, 47, 0.4); }
   40% { transform: scale(1.25); text-shadow: 0 0 16px rgba(255, 255, 255, 0.9); }
   100% { transform: scale(1); text-shadow: 0 0 6px rgba(173, 255, 47, 0.4); }
+}
+
+/* ================================
+   CHRISTMAS THEME STYLES
+   ================================ */
+
+/* Christmas overlay container */
+.christmas-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -9999;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Video background for Christmas */
+.christmas-video-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -10000;
+  pointer-events: none;
+}
+
+/* Audio element (hidden) */
+.christmas-audio {
+  display: none;
+}
+
+/* Body class for Christmas mode */
+body.christmas-active {
+  /* Keep red/gold - works for Christmas! */
+}
+
+/* Hide Thanksgiving feast counter when Christmas mode is active */
+body.christmas-active .feast-counter {
+  display: none !important;
+}
+
+/* Falling snowflakes */
+.snowflake {
+  position: fixed;
+  top: -50px;
+  color: #fff;
+  font-size: 1.5em;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  user-select: none;
+  z-index: 9998;
+  opacity: 0.9;
+  animation: snowflake-shake 3s ease-in-out infinite;
+}
+
+.snowflake .inner {
+  display: inline-block;
+  animation: snowflake-fall linear infinite;
+}
+
+@keyframes snowflake-fall {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(105vh) rotate(360deg);
+    opacity: 0.3;
+  }
+}
+
+@keyframes snowflake-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(40px);
+  }
+}
+
+/* Different snowflake sizes */
+.snowflake.size-sm { font-size: 0.8em; }
+.snowflake.size-md { font-size: 1.2em; }
+.snowflake.size-lg { font-size: 1.8em; }
+.snowflake.size-xl { font-size: 2.5em; }
+
+/* Crosshair cursor for gingerbread hunting */
+.gingerbread-hunt-active,
+.gingerbread-hunt-active * {
+  cursor: crosshair !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+/* Gingerbread bug overrides */
+body.christmas-active .bug {
+  width: 96px !important;
+  height: 128px !important;
+  max-width: 96px !important;
+  max-height: 128px !important;
+  cursor: crosshair !important;
+}
+
+/* Christmas Gift Counter */
+.gift-counter {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 10000;
+  pointer-events: none;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.gift-counter-content {
+  background: linear-gradient(135deg, #1a472a 0%, #0d2818 100%);
+  border: 3px solid var(--solidcam-gold, #D4AF37);
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5),
+              inset 0 2px 4px rgba(212, 175, 55, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gift-row,
+.gift-counter .streak-row,
+.gift-counter .highest-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gift-icon,
+.gift-counter .streak-icon,
+.gift-counter .highest-icon {
+  font-size: 24px;
+  filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.4));
+}
+
+.gift-icon {
+  animation: gift-bounce 2s ease-in-out infinite;
+}
+
+@keyframes gift-bounce {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-3px) rotate(-5deg); }
+  75% { transform: translateY(-3px) rotate(5deg); }
+}
+
+.gift-label,
+.gift-counter .streak-label,
+.gift-counter .highest-label {
+  color: #b8e6c1;
+  font-size: 16px;
+  font-weight: 600;
+  text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.5px;
+  min-width: 60px;
+}
+
+.gift-count,
+.gift-counter .streak-count,
+.gift-counter .highest-count {
+  color: var(--solidcam-gold, #D4AF37);
+  font-size: 22px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+  min-width: 35px;
+  text-align: right;
+}
+
+/* Pulse effect for gift counter */
+.gift-count.pulse,
+.gift-counter .streak-count.pulse,
+.gift-counter .highest-count.pulse {
+  animation: counter-pulse 0.4s ease-out;
+}
+
+/* Audio control button */
+.christmas-audio-toggle {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10001;
+  background: linear-gradient(135deg, rgba(26, 71, 42, 0.9), rgba(13, 40, 24, 0.9));
+  border: 2px solid var(--solidcam-gold, #D4AF37);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.christmas-audio-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+
+.christmas-audio-toggle.muted {
+  opacity: 0.85;
+  animation: audio-pulse 2s ease-in-out infinite;
+}
+
+@keyframes audio-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 4px 20px rgba(212, 175, 55, 0.6);
+  }
+}
+
+.christmas-audio-toggle.muted:hover {
+  animation: none;
+  transform: scale(1.1);
 }

@@ -17,8 +17,9 @@ import {
   cancelQueuedSave
 } from './cloud-sync.js';
 
-// Thanksgiving mode toggle - set to false after Thanksgiving
-const THANKSGIVING_MODE = true;
+// Holiday mode toggles - only one should be true at a time
+const THANKSGIVING_MODE = false;
+const CHRISTMAS_MODE = true;
 
 let editMode = false;
 let packageAddMode = false;
@@ -315,6 +316,18 @@ export function renderApp(mount) {
     root.appendChild(wrapper.firstElementChild);
     // Initialize turkey hunt game
     initTurkeyHunt();
+  }
+
+  // Inject Christmas overlay if enabled
+  if (CHRISTMAS_MODE && !root.querySelector('.christmas-overlay')) {
+    document.body.classList.add('christmas-active');
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = renderChristmasOverlay();
+    root.appendChild(wrapper.firstElementChild);
+    // Initialize gingerbread hunt game
+    initGingerbreadHunt();
+    // Setup audio controls
+    setupChristmasAudio();
   }
 
   // Defensive: if the tab is backgrounded and later restored, ensure edit mode is off
@@ -1829,6 +1842,204 @@ function initTurkeyHunt() {
   });
 }
 
+// ================================
+// CHRISTMAS THEME FUNCTIONS
+// ================================
+
+function renderChristmasOverlay() {
+  // Generate snowflakes
+  const snowflakeChars = ['❄', '❅', '❆', '✻', '✼'];
+  const sizes = ['size-sm', 'size-md', 'size-lg', 'size-xl'];
+
+  const snowflakes = Array.from({ length: 25 }, (_, i) => {
+    const char = snowflakeChars[i % snowflakeChars.length];
+    const size = sizes[Math.floor(Math.random() * sizes.length)];
+    const left = Math.random() * 100;
+    const delay = Math.random() * 10;
+    const duration = 8 + Math.random() * 12;
+    const shakeDelay = Math.random() * 3;
+
+    return `
+      <div class="snowflake ${size}" style="left: ${left}%; animation-delay: ${shakeDelay}s;">
+        <div class="inner" style="animation-duration: ${duration}s; animation-delay: ${delay}s;">${char}</div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="christmas-overlay">
+      <video class="christmas-video-bg" autoplay loop muted playsinline>
+        <source src="assets/christmas/images/cabin.mp4" type="video/mp4">
+      </video>
+      ${snowflakes}
+    </div>
+    <div class="gift-counter">
+      <div class="gift-counter-content">
+        <div class="gift-row">
+          <span class="gift-icon">🎁</span>
+          <span class="gift-label">Gifts</span>
+          <span class="gift-count" id="gift-count">0</span>
+        </div>
+        <div class="streak-row">
+          <span class="streak-icon">❄️</span>
+          <span class="streak-label">Streak</span>
+          <span class="streak-count" id="streak-count">0</span>
+        </div>
+        <div class="highest-row">
+          <span class="highest-icon">⭐</span>
+          <span class="highest-label">Best</span>
+          <span class="highest-count" id="highest-streak-count">0</span>
+        </div>
+      </div>
+    </div>
+    <button class="christmas-audio-toggle" id="christmas-audio-toggle" title="Toggle music">
+      🎵
+    </button>
+    <audio id="christmas-audio" class="christmas-audio" loop preload="none">
+      <source src="assets/christmas/sounds/lofi-christmas.mp3" type="audio/mpeg">
+    </audio>
+  `;
+}
+
+function setupChristmasAudio() {
+  const audio = document.getElementById('christmas-audio');
+  const toggle = document.getElementById('christmas-audio-toggle');
+
+  if (!audio || !toggle) return;
+
+  let isPlaying = false;
+  audio.volume = 0.3;
+
+  // Start in muted state visually
+  toggle.classList.add('muted');
+  toggle.textContent = '🔇';
+  toggle.title = 'Click to play Christmas music';
+
+  const playAudio = () => {
+    audio.play().then(() => {
+      isPlaying = true;
+      toggle.classList.remove('muted');
+      toggle.textContent = '🎵';
+      toggle.title = 'Click to pause music';
+    }).catch(e => {
+      console.log('Audio play blocked:', e);
+      toggle.title = 'Click again to play music';
+    });
+  };
+
+  const pauseAudio = () => {
+    audio.pause();
+    isPlaying = false;
+    toggle.classList.add('muted');
+    toggle.textContent = '🔇';
+    toggle.title = 'Click to play Christmas music';
+  };
+
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation(); // Prevent triggering miss detection
+    if (isPlaying) {
+      pauseAudio();
+    } else {
+      playAudio();
+    }
+  });
+
+  // Try auto-start on first user interaction anywhere
+  let autoStartAttempted = false;
+  const tryAutoStart = (e) => {
+    if (autoStartAttempted) return;
+    // Don't auto-start if clicking the toggle itself
+    if (e.target.closest('.christmas-audio-toggle')) return;
+
+    autoStartAttempted = true;
+    playAudio();
+    document.removeEventListener('click', tryAutoStart);
+  };
+
+  document.addEventListener('click', tryAutoStart);
+}
+
+function initGingerbreadHunt() {
+  if (!CHRISTMAS_MODE) return;
+
+  // Check if GingerbreadController is loaded
+  if (typeof window.GingerbreadController === 'undefined') {
+    console.warn('GingerbreadController not loaded yet, retrying...');
+    setTimeout(initGingerbreadHunt, 100);
+    return;
+  }
+
+  // Set cursor for gingerbread hunting
+  document.body.classList.add('gingerbread-hunt-active');
+
+  // Initialize gingerbread controller
+  window.gingerbreadControllerInstance = new window.GingerbreadController({
+    minBugs: 4,
+    maxBugs: 7,
+    minSpeed: 20,
+    maxSpeed: 40,
+    mouseOver: 'nothing',
+    canDie: true,
+    canFly: false,
+    minDelay: 400,
+    maxDelay: 3000,
+    imageSprite: 'assets/christmas/sprites/gingerbread_sheet.png',
+    bugWidth: 48,
+    bugHeight: 64,
+    num_frames: 3,
+    numDeathTypes: 1,
+    zoom: 2
+  });
+
+  // Expose streak functions
+  window.resetStreakCounter = window.resetStreakCounter || function() {};
+
+  // Streak timeout
+  let streakTimeoutTimer = null;
+
+  function resetStreakTimeout() {
+    if (streakTimeoutTimer) {
+      clearTimeout(streakTimeoutTimer);
+    }
+    streakTimeoutTimer = setTimeout(() => {
+      if (window.resetStreakCounter) {
+        window.resetStreakCounter();
+      }
+    }, 4000);
+  }
+
+  // Click handler for gingerbread hunting
+  document.addEventListener('click', (e) => {
+    const gingerbreadElement = e.target.closest('.bug');
+
+    if (gingerbreadElement && CHRISTMAS_MODE && window.gingerbreadControllerInstance) {
+      const gingerbreads = window.gingerbreadControllerInstance.bugs;
+      const gingerbread = gingerbreads.find(g => g.bug === gingerbreadElement);
+
+      if (gingerbread && gingerbread.alive) {
+        gingerbread.die();
+        resetStreakTimeout();
+      }
+    }
+
+    // Detect misses
+    if (!gingerbreadElement && CHRISTMAS_MODE) {
+      const isCounter = e.target.closest('.gift-counter');
+      const isAudioToggle = e.target.closest('.christmas-audio-toggle');
+
+      if (!isCounter && !isAudioToggle) {
+        if (window.resetStreakCounter) {
+          window.resetStreakCounter();
+        }
+        if (streakTimeoutTimer) {
+          clearTimeout(streakTimeoutTimer);
+          streakTimeoutTimer = null;
+        }
+      }
+    }
+  });
+}
+
 function renderPackageRow(pkg) {
   const safeCode = escapeHtml(pkg.code);
   const safeCodeAttr = escapeAttr(pkg.code);
@@ -3023,34 +3234,71 @@ async function bootstrapStoredCloud(root) {
     return;
   }
 
-  setSyncState({ status: 'connecting', message: `Loading @${syncState.username}`, lastError: '' });
+  setSyncState({ status: 'connecting', message: `Syncing @${syncState.username}`, lastError: '' });
   updateSyncIndicators(root);
 
   try {
     const remote = await loadUserData(syncState.username);
-    if (remote?.pageSystem) {
-      suppressCloudSync = true;
-      pageSystem.importData(remote.pageSystem);
-      suppressCloudSync = false;
 
-      const newState = pageSystem.getCurrentPageState();
-      applyState(root, newState);
-      updateMasterCheckboxes(root);
-      refreshPageSystemUI(root);
-      setSyncState({
-        status: 'connected',
-        message: `Loaded @${syncState.username}`,
-        lastPulled: Date.now(),
-        lastSynced: remote.updatedAt || Date.now()
-      });
+    // Helper to check if local has real data (not just empty default)
+    const localHasRealData = () => {
+      if (pageSystem.companies.length === 0) return false;
+      if (pageSystem.companies.length > 1) return true;
+      const c = pageSystem.companies[0];
+      if (c.name !== 'Untitled Company') return true;
+      if (c.pages.length > 1) return true;
+      const panels = c.pages[0]?.state?.panels || {};
+      return Object.keys(panels).length > 0;
+    };
+
+    if (remote?.pageSystem) {
+      // Cloud has data - compare timestamps to decide sync direction
+      const localData = pageSystem.exportData();
+      const localUpdatedAt = localData.updatedAt || 0;
+      const remoteUpdatedAt = remote.updatedAt || 0;
+
+      if (localHasRealData() && localUpdatedAt > remoteUpdatedAt) {
+        // Local is newer - push to cloud
+        await saveUserData(syncState.username, localData);
+        setSyncState({
+          status: 'connected',
+          message: `Synced @${syncState.username}`,
+          lastSynced: Date.now()
+        });
+      } else {
+        // Cloud is newer or local is empty - pull from cloud
+        suppressCloudSync = true;
+        pageSystem.importData(remote.pageSystem);
+        suppressCloudSync = false;
+
+        const newState = pageSystem.getCurrentPageState();
+        applyState(root, newState);
+        updateMasterCheckboxes(root);
+        refreshPageSystemUI(root);
+        setSyncState({
+          status: 'connected',
+          message: `Loaded @${syncState.username}`,
+          lastPulled: Date.now(),
+          lastSynced: remote.updatedAt || Date.now()
+        });
+      }
     } else {
-      // No cloud data exists - push current local data to cloud (don't reset!)
-      await saveUserData(syncState.username, pageSystem.exportData());
-      setSyncState({
-        status: 'connected',
-        message: `Uploaded local data for @${syncState.username}`,
-        lastSynced: Date.now()
-      });
+      // No cloud data - only push if local has real data (don't push empty defaults)
+      if (localHasRealData()) {
+        await saveUserData(syncState.username, pageSystem.exportData());
+        setSyncState({
+          status: 'connected',
+          message: `Uploaded to @${syncState.username}`,
+          lastSynced: Date.now()
+        });
+      } else {
+        // Both empty - just mark connected, don't push empty data to cloud
+        setSyncState({
+          status: 'connected',
+          message: `Connected @${syncState.username}`,
+          lastSynced: Date.now()
+        });
+      }
     }
   } catch (error) {
     console.error('[Cloud Sync] bootstrap failed', error);
@@ -4224,28 +4472,81 @@ async function handleCloudConnectFromModal(input, root) {
     cancelQueuedSave(prevUsername);
   }
 
-  setStoredSyncUsername(username);
-  setSyncState({ username, status: 'connecting', message: `Connecting @${username}`, lastError: '' });
+  setSyncState({ username, status: 'connecting', message: `Checking @${username}`, lastError: '' });
   updateCloudUserIndicator();
 
   try {
     const remote = await loadUserData(username);
-    if (remote?.pageSystem) {
-      suppressCloudSync = true;
-      pageSystem.importData(remote.pageSystem);
-      suppressCloudSync = false;
+    const localCompanies = pageSystem.companies.length;
+    const localHasData = localCompanies > 0 &&
+      !(localCompanies === 1 && pageSystem.companies[0].name === 'Untitled Company' &&
+        pageSystem.companies[0].pages.length === 1 &&
+        Object.keys(pageSystem.companies[0].pages[0].state?.panels || {}).length === 0);
 
-      const newState = pageSystem.getCurrentPageState();
-      applyState(root, newState);
-      updateMasterCheckboxes(root);
-      refreshPageSystemUI(root);
-      setSyncState({
-        status: 'connected',
-        message: `Synced @${username}`,
-        lastPulled: Date.now(),
-        lastSynced: remote.updatedAt || Date.now()
-      });
+    if (remote?.pageSystem) {
+      const remoteCompanyCount = remote.pageSystem.companies?.length || 0;
+      const remoteDate = remote.updatedAt ? new Date(remote.updatedAt).toLocaleString() : 'unknown';
+
+      // Cloud has data - ask user what to do
+      if (localHasData) {
+        const choice = await showCloudSyncChoiceDialog(
+          username,
+          localCompanies,
+          remoteCompanyCount,
+          remoteDate
+        );
+
+        if (choice === 'pull') {
+          // Overwrite local with cloud
+          suppressCloudSync = true;
+          pageSystem.importData(remote.pageSystem);
+          suppressCloudSync = false;
+          setStoredSyncUsername(username);
+
+          const newState = pageSystem.getCurrentPageState();
+          applyState(root, newState);
+          updateMasterCheckboxes(root);
+          refreshPageSystemUI(root);
+          setSyncState({
+            status: 'connected',
+            message: `Pulled from @${username}`,
+            lastPulled: Date.now(),
+            lastSynced: remote.updatedAt || Date.now()
+          });
+        } else if (choice === 'push') {
+          // Overwrite cloud with local
+          setStoredSyncUsername(username);
+          await saveUserData(username, pageSystem.exportData());
+          setSyncState({
+            status: 'connected',
+            message: `Pushed to @${username}`,
+            lastSynced: Date.now()
+          });
+        } else {
+          // Cancelled
+          setSyncState({ username: prevUsername || '', status: 'disconnected', message: 'Sync cancelled' });
+        }
+      } else {
+        // Local is empty/default - just pull cloud data
+        suppressCloudSync = true;
+        pageSystem.importData(remote.pageSystem);
+        suppressCloudSync = false;
+        setStoredSyncUsername(username);
+
+        const newState = pageSystem.getCurrentPageState();
+        applyState(root, newState);
+        updateMasterCheckboxes(root);
+        refreshPageSystemUI(root);
+        setSyncState({
+          status: 'connected',
+          message: `Synced @${username}`,
+          lastPulled: Date.now(),
+          lastSynced: remote.updatedAt || Date.now()
+        });
+      }
     } else {
+      // No cloud data - push local to cloud
+      setStoredSyncUsername(username);
       await saveUserData(username, pageSystem.exportData());
       setSyncState({
         status: 'connected',
@@ -4265,6 +4566,56 @@ async function handleCloudConnectFromModal(input, root) {
     closeCloudSettingsModal();
     openCloudSettingsModal(root); // Reopen with updated state
   }
+}
+
+function showCloudSyncChoiceDialog(username, localCount, remoteCount, remoteDate) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'cloud-sync-choice-overlay';
+    overlay.innerHTML = `
+      <div class="cloud-sync-choice-dialog">
+        <h3>Cloud Data Found</h3>
+        <p>Account <strong>@${username}</strong> already has data in the cloud.</p>
+        <div class="sync-choice-comparison">
+          <div class="sync-choice-local">
+            <span class="sync-choice-label">Local</span>
+            <span class="sync-choice-value">${localCount} ${localCount === 1 ? 'company' : 'companies'}</span>
+          </div>
+          <div class="sync-choice-vs">vs</div>
+          <div class="sync-choice-cloud">
+            <span class="sync-choice-label">Cloud</span>
+            <span class="sync-choice-value">${remoteCount} ${remoteCount === 1 ? 'company' : 'companies'}</span>
+            <span class="sync-choice-date">Last saved: ${remoteDate}</span>
+          </div>
+        </div>
+        <p class="sync-choice-warning">Choose which data to keep. The other will be overwritten.</p>
+        <div class="sync-choice-buttons">
+          <button type="button" class="sync-choice-btn sync-choice-pull" data-choice="pull">
+            ↓ Pull Cloud Data
+          </button>
+          <button type="button" class="sync-choice-btn sync-choice-push" data-choice="push">
+            ↑ Push Local Data
+          </button>
+          <button type="button" class="sync-choice-btn sync-choice-cancel" data-choice="cancel">
+            Cancel
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-choice]');
+      if (btn) {
+        overlay.remove();
+        resolve(btn.dataset.choice);
+      } else if (e.target === overlay) {
+        overlay.remove();
+        resolve('cancel');
+      }
+    });
+  });
 }
 
 function updateCloudUserIndicator() {
