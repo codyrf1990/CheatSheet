@@ -1912,7 +1912,7 @@ function renderChristmasOverlay() {
       </div>
     </div>
     <audio id="christmas-audio" class="christmas-audio" loop preload="none">
-      <source src="assets/christmas/sounds/lofi-christmas.mp3" type="audio/mpeg">
+      <source src="https://github.com/codyrf1990/CheatSheet/releases/download/assets/lofi-christmas.mp3" type="audio/mpeg">
     </audio>
   `;
 }
