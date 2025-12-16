@@ -6060,3 +6060,16 @@ body.christmas-active .bug {
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
+
+.audio-volume-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+}
+
+.audio-volume-slider::-moz-range-track {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+  border: none;
+}

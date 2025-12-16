@@ -2043,8 +2043,11 @@ function setupChristmasAudio() {
   }
 }
 
+let gingerbreadHuntInitialized = false;
+
 function initGingerbreadHunt() {
   if (!CHRISTMAS_MODE) return;
+  if (gingerbreadHuntInitialized) return; // Prevent duplicate initialization
 
   // Check if GingerbreadController is loaded
   if (typeof window.GingerbreadController === 'undefined') {
@@ -2052,6 +2055,8 @@ function initGingerbreadHunt() {
     setTimeout(initGingerbreadHunt, 100);
     return;
   }
+
+  gingerbreadHuntInitialized = true;
 
   // Set cursor for gingerbread hunting
   document.body.classList.add('gingerbread-hunt-active');
