@@ -5,6 +5,17 @@ import { loadState, clearState } from './persistence.js';
 import { stateQueue } from './state-queue.js';
 import { logger } from './debug-logger.js';
 import { PageSystem } from './page-system.js';
+import {
+  ensureAnalytics,
+  getStoredUsername as getStoredSyncUsername,
+  setStoredUsername as setStoredSyncUsername,
+  clearStoredUsername as clearStoredSyncUsername,
+  validateUsername,
+  loadUserData,
+  saveUserData,
+  queueUserSave,
+  cancelQueuedSave
+} from './cloud-sync.js';
 
 // Thanksgiving mode toggle - set to false after Thanksgiving
 const THANKSGIVING_MODE = true;
@@ -26,6 +37,57 @@ let editModeGuardId = null;
 let copyHudEl = null;
 let copyHudTimer = null;
 let pageSystem = null;
+let pageSystemRoot = null;
+
+const syncState = {
+  username: getStoredSyncUsername() || '',
+  status: (getStoredSyncUsername() ? 'connecting' : 'disconnected'),
+  message: (getStoredSyncUsername() ? `Loading ${getStoredSyncUsername()}` : 'Local only'),
+  lastSynced: null,
+  lastPulled: null,
+  lastError: ''
+};
+let suppressCloudSync = false;
+
+function setSyncState(patch = {}) {
+  Object.assign(syncState, patch);
+}
+
+function formatSyncTime(timestamp) {
+  if (!timestamp) return 'Not yet';
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    }).format(new Date(timestamp));
+  } catch (_) {
+    return 'Recently';
+  }
+}
+
+function renderCloudUserIndicator() {
+  const isConnected = syncState.username && syncState.status !== 'disconnected';
+  const statusClass = syncState.status || 'disconnected';
+
+  if (isConnected) {
+    return `
+      <div class="cloud-user-indicator" data-sync-state="${escapeAttr(statusClass)}">
+        <span class="cloud-user-icon">👤</span>
+        <span class="cloud-user-name">${escapeHtml(syncState.username)}</span>
+        <button class="cloud-user-change" data-action="open-cloud-settings" type="button">change</button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="cloud-user-indicator" data-sync-state="disconnected">
+      <span class="cloud-user-label">Local only</span>
+      <button class="cloud-user-change" data-action="open-cloud-settings" type="button">sync</button>
+    </div>
+  `;
+}
 
 export function renderApp(mount) {
   editMode = false;
@@ -36,8 +98,12 @@ export function renderApp(mount) {
 
   // Initialize page system
   if (!pageSystem) {
+    if (syncState.username) {
+      suppressCloudSync = true;
+    }
     pageSystem = new PageSystem();
     pageSystem.load();
+    pageSystem.setChangeHandler(handlePageSystemChanged);
   }
 
   mount.innerHTML = `
@@ -195,6 +261,12 @@ export function renderApp(mount) {
   // Attach page system event listeners
   attachPageSystemListeners(root);
 
+  // Attach cloud settings button listener
+  const cloudSettingsBtn = root.querySelector('[data-action="open-cloud-settings"]');
+  if (cloudSettingsBtn) {
+    cloudSettingsBtn.addEventListener('click', () => openCloudSettingsModal(root));
+  }
+
   // Setup auto-save
   setupAutoSave(root);
 
@@ -206,6 +278,10 @@ export function renderApp(mount) {
   widthSyncRoot = root;
   schedulePanelWidthSync(root);
   ensureWidthSyncListener();
+  pageSystemRoot = root;
+  updateSyncIndicators(root);
+  bootstrapStoredCloud(root);
+  ensureAnalytics();
 
   // Inject About overlay once per render
   if (!root.querySelector('.about-overlay')) {
@@ -432,7 +508,9 @@ function renderHeader() {
           </div>
         </div>
       </div>
-      <div class="header-spacer"></div>
+      <div class="header-cloud-user">
+        ${renderCloudUserIndicator()}
+      </div>
     </header>
   `;
 }
@@ -468,26 +546,24 @@ function renderPageSystemControls() {
 
   const pages = company.pages;
   const currentId = company.currentPageId;
+  const syncStatus = syncState.status || 'disconnected';
 
   return `
-    <div class="page-system">
-      <button class="page-system-info-btn" data-action="toggle-page-system-help" type="button" title="How to use">
-        <img src="assets/img/about-gold-circle-23095.svg" alt="About">
-      </button>
+    <div class="page-system page-system--compact" data-sync-state="${escapeAttr(syncStatus)}">
+      <div class="page-system-head">
+        <span class="page-system-title">Companies & Pages</span>
+        <button class="page-system-info-btn" data-action="toggle-page-system-help" type="button" title="How to use">
+          <img src="assets/img/about-gold-circle-23095.svg" alt="About">
+        </button>
+      </div>
 
       <div class="page-system-help-tooltip" data-page-system-help hidden>
         <div class="page-system-help-content">
-          <h3>How to Use Page System</h3>
+          <h3>How to Use</h3>
           <ul>
-            <li><strong>Company Dropdown:</strong> Select and switch between different companies</li>
-            <li><strong>🏢 New Company:</strong> Create a new company</li>
-            <li><strong>✏️ Rename:</strong> Rename the current company</li>
-            <li><strong>📋 Duplicate:</strong> Create a copy of the current company</li>
-            <li><strong>🗑️ Delete:</strong> Delete the current company</li>
-            <li><strong>Page Tabs:</strong> Click to switch between pages. Double-click a tab to rename it</li>
-            <li><strong>+ New:</strong> Create a new page in the current company</li>
-            <li><strong>📋 Copy:</strong> Duplicate the current page</li>
-            <li><strong>🗑️ Delete:</strong> Delete the current page</li>
+            <li><strong>Company:</strong> Use the dropdown to switch companies.</li>
+            <li><strong>Pages:</strong> Click tabs to switch; double-click to rename.</li>
+            <li><strong>Cloud sync:</strong> Click your username in the header to manage sync.</li>
           </ul>
         </div>
       </div>
@@ -498,10 +574,10 @@ function renderPageSystemControls() {
         </div>
 
         <div class="company-actions-row">
-          <button class="page-action-btn page-action-btn--company" data-action="new-company-quick" title="Create new company">🏢 New Company</button>
-          <button class="company-action-btn" data-action="rename-company" type="button" title="Rename current company">✏️ Rename</button>
-          <button class="company-action-btn" data-action="duplicate-company" type="button" title="Duplicate current company">📋 Duplicate</button>
-          <button class="company-action-btn company-action-btn--danger" data-action="delete-company" type="button" title="Delete current company">🗑️ Delete</button>
+          <button class="page-action-btn page-action-btn--gold" data-action="new-company-quick" title="Create new company">+ New Company</button>
+          <button class="company-action-btn" data-action="rename-company" type="button" title="Rename current company">Rename</button>
+          <button class="company-action-btn" data-action="duplicate-company" type="button" title="Duplicate current company">Duplicate</button>
+          <button class="company-action-btn company-action-btn--danger" data-action="delete-company" type="button" title="Delete current company">Delete</button>
         </div>
       </div>
 
@@ -563,10 +639,11 @@ function renderCompanyDropdown() {
 
         ${favorites.length > 0 ? `
           <div class="company-dropdown-section">
-            <div class="company-section-title">⭐ Favorites (${favorites.length})</div>
+            <div class="company-section-title">Favorites (${favorites.length})</div>
             <div class="company-list">
               ${favorites.map(company => {
     const isCurrent = company.id === current.id;
+    const isFavorite = pageSystem.favoriteCompanyIds.includes(company.id);
     return `
                   <div class="company-list-item-wrapper">
                     <button
@@ -578,12 +655,12 @@ function renderCompanyDropdown() {
                       ${escapeHtml(company.name)} ${isCurrent ? '●' : ''}
                     </button>
                     <button
-                      class="favorite-toggle active"
+                      class="favorite-toggle${isFavorite ? ' active' : ''}"
                       data-action="toggle-favorite"
                       data-company-id="${escapeAttr(company.id)}"
-                      title="Remove from favorites"
+                      title="${isFavorite ? 'Remove from favorites' : 'Add to favorites'}"
                       type="button"
-                    >★</button>
+                    >${isFavorite ? '★' : '☆'}</button>
                   </div>
                 `;
   }).join('')}
@@ -863,51 +940,54 @@ function renderAboutOverlay() {
 function renderSalesTaxModal() {
   return `
     <div class="about-overlay" data-modal="sales-tax" role="dialog" aria-modal="true">
-      <div class="about-modal">
+      <div class="about-modal modal--sales-tax">
         <div class="about-modal-head">
           <h3>U.S. Sales Tax Guide 2025</h3>
           <button type="button" class="about-close" data-action="close-modal" aria-label="Close">×</button>
         </div>
         <div class="about-modal-body">
-          <h4>States Required to Collect Sales Tax</h4>
-          <p>The following states impose a state-level sales tax and require businesses with nexus to collect and remit sales tax on taxable goods and services:</p>
-          <ul>
-            <li>Arizona</li>
-            <li>Colorado</li>
-            <li>Pennsylvania</li>
-            <li>South Carolina</li>
-            <li>Tennessee</li>
-            <li>Utah</li>
-            <li>Washington</li>
-            <li>Wisconsin</li>
-            <li>Indiana</li>
-            <li>Massachusetts</li>
-            <li>Minnesota</li>
-            <li>North Carolina</li>
-            <li>Ohio</li>
-            <li>Michigan</li>
-          </ul>
-          <p>These states generally tax tangible personal property and some services, with variations by state and locality.</p>
+          <div class="sales-tax-section">
+            <h4 class="sales-tax-section__title sales-tax-section__title--required">States Required to Collect Sales Tax</h4>
+            <div class="sales-tax-states">
+              <span class="sales-tax-state">Arizona</span>
+              <span class="sales-tax-state">Colorado</span>
+              <span class="sales-tax-state">Indiana</span>
+              <span class="sales-tax-state">Massachusetts</span>
+              <span class="sales-tax-state">Michigan</span>
+              <span class="sales-tax-state">Minnesota</span>
+              <span class="sales-tax-state">North Carolina</span>
+              <span class="sales-tax-state">Ohio</span>
+              <span class="sales-tax-state">Pennsylvania</span>
+              <span class="sales-tax-state">South Carolina</span>
+              <span class="sales-tax-state">Tennessee</span>
+              <span class="sales-tax-state">Utah</span>
+              <span class="sales-tax-state">Washington</span>
+              <span class="sales-tax-state">Wisconsin</span>
+            </div>
+          </div>
 
-          <h4>States Exempt from State Sales Tax</h4>
-          <p>These states do not impose a statewide sales tax on goods or services:</p>
-          <ul>
-            <li>Alaska <em>(Note: Some localities in Alaska impose local sales taxes)</em></li>
-            <li>Delaware</li>
-            <li>Montana</li>
-            <li>New Hampshire</li>
-            <li>Oregon</li>
-          </ul>
-          <p>Residents and businesses in these states do not pay state sales tax but should check local rules and other taxes like use tax, income tax, or business taxes.</p>
+          <div class="sales-tax-section">
+            <h4 class="sales-tax-section__title sales-tax-section__title--exempt">States Exempt from Sales Tax</h4>
+            <div class="sales-tax-states">
+              <span class="sales-tax-state sales-tax-state--exempt">Alaska</span>
+              <span class="sales-tax-state sales-tax-state--exempt">Delaware</span>
+              <span class="sales-tax-state sales-tax-state--exempt">Montana</span>
+              <span class="sales-tax-state sales-tax-state--exempt">New Hampshire</span>
+              <span class="sales-tax-state sales-tax-state--exempt">Oregon</span>
+            </div>
+          </div>
 
-          <h4>States with Notable Exceptions on Sales Tax (Example: California)</h4>
-          <p>California is a state with a state sales tax but it has complex rules and specific exemptions for certain products and services, including:</p>
-          <ul>
-            <li>Sales tax exemptions on most food products for human consumption</li>
-            <li>Partial exemptions on certain medical devices</li>
-            <li>Specific rules on services, digital goods, and other categories</li>
-          </ul>
-          <p>California's combined state and local sales tax rates can be as high as 16.75%, with nuanced rules about taxability by product category.</p>
+          <div class="sales-tax-section">
+            <h4 class="sales-tax-section__title sales-tax-section__title--exception">Exception States</h4>
+            <div class="sales-tax-exception">
+              <strong>California</strong> — Certain products and services exempt
+            </div>
+          </div>
+
+          <div class="sales-tax-section">
+            <h4 class="sales-tax-section__title">International</h4>
+            <p class="sales-tax-note">Canada customers pay their own local and province taxes.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -916,11 +996,11 @@ function renderSalesTaxModal() {
 
 function renderCurrentProductsModal() {
   return `
-    <div class="about-overlay" data-modal="current-products" role="dialog" aria-modal="true">
-      <div class="about-modal modal--products" style="max-width: 95vw; width: 900px; max-height: 85vh; display: flex; flex-direction: column;">
-        <div class="about-modal-head modal__header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h3 class="modal__title" style="margin: 0;">SolidCAM Product Catalog</h3>
-          <button type="button" class="about-close modal__close-btn" data-action="close-modal" aria-label="Close">×</button>
+    <div class="modal-overlay" data-modal="current-products" role="dialog" aria-modal="true">
+      <div class="modal modal--products">
+        <div class="modal__header-row">
+          <h3 class="modal__title">SolidCAM Product Catalog</h3>
+          <button type="button" class="modal__close-btn" data-modal-action="close" aria-label="Close">×</button>
         </div>
         <div class="products-tabs">
           <button class="products-tab is-active" data-tab="overview">Overview</button>
@@ -929,7 +1009,7 @@ function renderCurrentProductsModal() {
           <button class="products-tab" data-tab="training">Training</button>
           <button class="products-tab" data-tab="posts">Post Processors</button>
         </div>
-        <div class="about-modal-body products-content" data-products-content style="flex: 1; overflow-y: auto; padding-right: 0.5rem;">
+        <div class="products-content" data-products-content>
           ${renderProductsOverview()}
         </div>
       </div>
@@ -1905,10 +1985,10 @@ function handleRootClick(event, root) {
     }
   }
 
-  const control = target.closest('[data-action]');
+  const control = target.closest('[data-action]') || target.closest('[data-modal-action]');
   if (!control) return;
 
-  const action = control.dataset.action;
+  const action = control.dataset.action || control.dataset.modalAction;
 
   switch (action) {
     case 'package-toggle-add-mode':
@@ -1958,6 +2038,10 @@ function handleRootClick(event, root) {
       openModal(root, 'current-products');
       break;
     case 'close-modal':
+      closeModal(root);
+      break;
+    case 'close':
+      // Handle data-modal-action="close" from BEM-style modals
       closeModal(root);
       break;
     default:
@@ -2857,7 +2941,7 @@ function closeOperationsMenu() {
 }
 
 function setupModalBackdropHandlers(root) {
-  const overlays = root.querySelectorAll('.about-overlay');
+  const overlays = root.querySelectorAll('.about-overlay, .modal-overlay');
   overlays.forEach(overlay => {
     overlay.addEventListener('click', event => {
       // Only close if clicking directly on the overlay (backdrop), not the modal content
@@ -2886,6 +2970,248 @@ function setupModalKeyboardHandlers(root) {
 // ========================================
 // Page System Event Handlers
 // ========================================
+
+function updateSyncIndicators(root = pageSystemRoot) {
+  if (!root && pageSystemRoot) root = pageSystemRoot;
+  if (!root) return;
+  const statusTextEl = root.querySelector('[data-sync-status-text]');
+  if (statusTextEl) {
+    statusTextEl.textContent = syncState.message || (syncState.username ? `Connected as @${syncState.username}` : 'Local only');
+  }
+
+  const subStatusEl = root.querySelector('[data-sync-status-sub]');
+  if (subStatusEl) {
+    const sub = syncState.username
+      ? `@${syncState.username} • ${syncState.lastSynced ? `Last sync ${formatSyncTime(syncState.lastSynced)}` : 'Ready to sync'}`
+      : 'Local autosave only';
+    subStatusEl.textContent = sub;
+  }
+
+  const dot = root.querySelector('[data-sync-status-dot]');
+  if (dot) {
+    dot.dataset.state = syncState.status || 'disconnected';
+  }
+
+  const container = root.querySelector('.page-system');
+  if (container) {
+    container.setAttribute('data-sync-state', syncState.status || 'disconnected');
+  }
+
+  const usernameInput = root.querySelector('[data-sync-username]');
+  if (usernameInput && syncState.username && usernameInput.value !== syncState.username) {
+    usernameInput.value = syncState.username;
+  }
+
+  const refreshBtn = root.querySelector('[data-action="sync-refresh"]');
+  if (refreshBtn) {
+    refreshBtn.disabled = !syncState.username || syncState.status === 'connecting';
+  }
+
+  const disconnectBtn = root.querySelector('[data-action="sync-disconnect"]');
+  if (disconnectBtn) {
+    disconnectBtn.disabled = !syncState.username;
+  }
+
+  // Also update the header cloud user indicator
+  updateCloudUserIndicator();
+}
+
+async function bootstrapStoredCloud(root) {
+  if (!syncState.username) {
+    setSyncState({ status: 'disconnected', message: 'Local only' });
+    updateSyncIndicators(root);
+    return;
+  }
+
+  setSyncState({ status: 'connecting', message: `Loading @${syncState.username}`, lastError: '' });
+  updateSyncIndicators(root);
+
+  try {
+    const remote = await loadUserData(syncState.username);
+    if (remote?.pageSystem) {
+      suppressCloudSync = true;
+      pageSystem.importData(remote.pageSystem);
+      suppressCloudSync = false;
+
+      const newState = pageSystem.getCurrentPageState();
+      applyState(root, newState);
+      updateMasterCheckboxes(root);
+      refreshPageSystemUI(root);
+      setSyncState({
+        status: 'connected',
+        message: `Loaded @${syncState.username}`,
+        lastPulled: Date.now(),
+        lastSynced: remote.updatedAt || Date.now()
+      });
+    } else {
+      // No cloud data exists - push current local data to cloud (don't reset!)
+      await saveUserData(syncState.username, pageSystem.exportData());
+      setSyncState({
+        status: 'connected',
+        message: `Uploaded local data for @${syncState.username}`,
+        lastSynced: Date.now()
+      });
+    }
+  } catch (error) {
+    console.error('[Cloud Sync] bootstrap failed', error);
+    setSyncState({
+      status: 'error',
+      message: 'Cloud unavailable (using local)',
+      lastError: error?.message || 'Cloud error'
+    });
+  } finally {
+    suppressCloudSync = false;
+    updateSyncIndicators(root);
+  }
+}
+
+async function handleSyncConnect(root) {
+  const input = root.querySelector('[data-sync-username]');
+  const usernameRaw = input?.value || '';
+  const validation = validateUsername(usernameRaw);
+  if (!validation.valid) {
+    alert(validation.reason);
+    return;
+  }
+
+  const username = usernameRaw.trim();
+  const prevUsername = syncState.username;
+  if (prevUsername && prevUsername !== username) {
+    cancelQueuedSave(prevUsername);
+  }
+
+  setStoredSyncUsername(username);
+  setSyncState({ username, status: 'connecting', message: `Connecting @${username}`, lastError: '' });
+  updateSyncIndicators(root);
+
+  try {
+    const remote = await loadUserData(username);
+    if (remote?.pageSystem) {
+      suppressCloudSync = true;
+      pageSystem.importData(remote.pageSystem);
+      suppressCloudSync = false;
+
+      const newState = pageSystem.getCurrentPageState();
+      applyState(root, newState);
+      updateMasterCheckboxes(root);
+      refreshPageSystemUI(root);
+      setSyncState({
+        status: 'connected',
+        message: `Synced @${username}`,
+        lastPulled: Date.now(),
+        lastSynced: remote.updatedAt || Date.now()
+      });
+    } else {
+      // No cloud data exists - push current local data to cloud (don't reset!)
+      await saveUserData(username, pageSystem.exportData());
+      setSyncState({
+        status: 'connected',
+        message: `Uploaded local data for @${username}`,
+        lastSynced: Date.now()
+      });
+    }
+  } catch (error) {
+    console.error('[Cloud Sync] connect failed', error);
+    setSyncState({
+      status: 'error',
+      message: 'Cloud save failed (local only)',
+      lastError: error?.message || 'Cloud error'
+    });
+  } finally {
+    updateSyncIndicators(root);
+  }
+}
+
+async function handleSyncRefresh(root) {
+  if (!syncState.username) return;
+  setSyncState({ status: 'connecting', message: `Pulling @${syncState.username}` });
+  updateSyncIndicators(root);
+
+  try {
+    const remote = await loadUserData(syncState.username);
+    if (remote?.pageSystem) {
+      suppressCloudSync = true;
+      pageSystem.importData(remote.pageSystem);
+      suppressCloudSync = false;
+
+      const newState = pageSystem.getCurrentPageState();
+      applyState(root, newState);
+      updateMasterCheckboxes(root);
+      refreshPageSystemUI(root);
+      setSyncState({
+        status: 'connected',
+        message: `Pulled @${syncState.username}`,
+        lastPulled: Date.now(),
+        lastSynced: remote.updatedAt || Date.now()
+      });
+    } else {
+      setSyncState({
+        status: 'connected',
+        message: `Nothing in cloud for @${syncState.username}`,
+        lastPulled: Date.now()
+      });
+    }
+  } catch (error) {
+    console.error('[Cloud Sync] refresh failed', error);
+    setSyncState({
+      status: 'error',
+      message: 'Pull failed (using local)',
+      lastError: error?.message || 'Cloud error'
+    });
+  } finally {
+    updateSyncIndicators(root);
+  }
+}
+
+function handleSyncDisconnect(root) {
+  cancelQueuedSave(syncState.username);
+  clearStoredSyncUsername();
+  setSyncState({
+    username: '',
+    status: 'disconnected',
+    message: 'Local only',
+    lastError: ''
+  });
+  updateSyncIndicators(root);
+}
+
+function handlePageSystemChanged(snapshot) {
+  if (suppressCloudSync) return;
+  if (!syncState.username) return;
+  setSyncState({ status: 'syncing', message: `Syncing @${syncState.username}` });
+  updateSyncIndicators(pageSystemRoot);
+
+  queueUserSave(syncState.username, snapshot)
+    .then(() => {
+      setSyncState({ status: 'connected', message: `Synced @${syncState.username}`, lastSynced: Date.now() });
+      updateSyncIndicators(pageSystemRoot);
+    })
+    .catch(error => {
+      console.error('[Cloud Sync] save failed', error);
+      setSyncState({
+        status: 'error',
+        message: 'Cloud sync failed (retaining local)',
+      lastError: error?.message || 'Cloud error'
+    });
+    updateSyncIndicators(pageSystemRoot);
+  });
+}
+
+function resetToFreshPageSystem(root, companyName = 'Untitled Company') {
+  suppressCloudSync = true;
+  pageSystem.companies = [pageSystem.buildDefaultCompany(companyName)];
+  pageSystem.currentCompanyId = pageSystem.companies[0].id;
+  pageSystem.favoriteCompanyIds = [];
+  pageSystem.recentCompanyIds = [];
+  pageSystem.ensureIntegrity();
+  pageSystem.save();
+
+  const newState = pageSystem.getCurrentPageState();
+  applyState(root, newState);
+  updateMasterCheckboxes(root);
+  refreshPageSystemUI(root);
+  suppressCloudSync = false;
+}
 
 // CRITICAL FIX: Track document listeners to prevent memory leaks
 // Store references so they can be removed when UI refreshes
@@ -3016,6 +3342,23 @@ function attachPageSystemListeners(root) {
   if (deletePageBtn) {
     deletePageBtn.addEventListener('click', () => handlePageDelete(root));
   }
+
+  const connectBtn = root.querySelector('[data-action="sync-connect"]');
+  if (connectBtn) {
+    connectBtn.addEventListener('click', () => handleSyncConnect(root));
+  }
+
+  const refreshBtn = root.querySelector('[data-action="sync-refresh"]');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => handleSyncRefresh(root));
+  }
+
+  const disconnectBtn = root.querySelector('[data-action="sync-disconnect"]');
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener('click', () => handleSyncDisconnect(root));
+  }
+
+  updateSyncIndicators(root);
 }
 
 function handlePageSwitch(pageId, root) {
@@ -3266,6 +3609,7 @@ function updateRelativeTime() {
  * Company dropdown handlers
  */
 let currentDropdownCloseHandler = null;
+let dropdownJustOpened = false;
 
 function handleDropdownToggle(root) {
   const menu = root.querySelector('[data-company-menu]');
@@ -3277,19 +3621,25 @@ function handleDropdownToggle(root) {
     // Open dropdown
     menu.removeAttribute('hidden');
 
-    // Close on click outside
-    setTimeout(() => {
-      if (currentDropdownCloseHandler) {
-        document.removeEventListener('click', currentDropdownCloseHandler);
-      }
+    // Remove old handler if exists
+    if (currentDropdownCloseHandler) {
+      document.removeEventListener('click', currentDropdownCloseHandler);
+    }
 
-      currentDropdownCloseHandler = (e) => {
-        if (!e.target.closest('.company-dropdown')) {
-          closeDropdown(root);
-        }
-      };
-      document.addEventListener('click', currentDropdownCloseHandler);
-    }, 0);
+    // Set flag to prevent immediate close from the same click event
+    dropdownJustOpened = true;
+
+    // Close on click outside - use flag instead of setTimeout to avoid race condition
+    currentDropdownCloseHandler = (e) => {
+      if (dropdownJustOpened) {
+        dropdownJustOpened = false;
+        return;
+      }
+      if (!e.target.closest('.company-dropdown')) {
+        closeDropdown(root);
+      }
+    };
+    document.addEventListener('click', currentDropdownCloseHandler);
   } else {
     // Close dropdown
     closeDropdown(root);
@@ -3300,12 +3650,15 @@ function closeDropdown(root) {
   const menu = root.querySelector('[data-company-menu]');
   if (menu) {
     menu.setAttribute('hidden', '');
+    // Clear the delegation flag so it can be reattached when dropdown reopens
+    delete menu.dataset.delegationAttached;
   }
 
   if (currentDropdownCloseHandler) {
     document.removeEventListener('click', currentDropdownCloseHandler);
     currentDropdownCloseHandler = null;
   }
+  dropdownJustOpened = false;
 }
 
 function handleSwitchCompany(companyId, root) {
@@ -3486,8 +3839,12 @@ function handleSearchCompanies(input, root) {
     const searchHint = menu.querySelector('.company-search-hint');
 
     if (!query) {
-      // Empty search - hide results, show hint
-      if (searchResultsSection) searchResultsSection.setAttribute('hidden', '');
+      // Empty search - hide results and clear old content, show hint
+      if (searchResultsSection) {
+        searchResultsSection.setAttribute('hidden', '');
+        const resultsList = searchResultsSection.querySelector('[data-search-results-list]');
+        if (resultsList) resultsList.innerHTML = '';
+      }
       if (searchHint) searchHint.style.display = 'block';
     } else {
       // Active search - show results, hide hint
@@ -3537,25 +3894,37 @@ function renderSearchResults(results, root) {
   }
 
   searchResultsSection.removeAttribute('hidden');
-  attachDropdownActionListeners(root);
+  // No need to reattach listeners - using event delegation on the menu container
 }
 
-function attachDropdownActionListeners(root) {
-  // Switch company
-  root.querySelectorAll('[data-action="switch-company"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const companyId = btn.dataset.companyId;
-      handleSwitchCompany(companyId, root);
-    });
-  });
+// Track if dropdown delegation is set up to prevent duplicate listeners
+let dropdownDelegationAttached = false;
 
-  // Toggle favorite
-  root.querySelectorAll('[data-action="toggle-favorite"]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+function attachDropdownActionListeners(root) {
+  // Use event delegation on the dropdown menu container
+  // This prevents listener duplication when search results are re-rendered
+  const menu = root.querySelector('[data-company-menu]');
+  if (!menu || menu.dataset.delegationAttached) return;
+
+  menu.dataset.delegationAttached = 'true';
+
+  menu.addEventListener('click', (e) => {
+    // Handle switch company
+    const switchBtn = e.target.closest('[data-action="switch-company"]');
+    if (switchBtn) {
+      const companyId = switchBtn.dataset.companyId;
+      handleSwitchCompany(companyId, root);
+      return;
+    }
+
+    // Handle toggle favorite
+    const favBtn = e.target.closest('[data-action="toggle-favorite"]');
+    if (favBtn) {
       e.stopPropagation();
-      const companyId = btn.dataset.companyId;
+      const companyId = favBtn.dataset.companyId;
       handleToggleFavorite(companyId, root);
-    });
+      return;
+    }
   });
 }
 
@@ -3660,14 +4029,20 @@ function attachBrowseModalListeners(root) {
     });
   });
 
-  // Toggle favorite
+  // Toggle favorite - update button in-place instead of re-rendering entire modal
   modal.querySelectorAll('[data-action="toggle-favorite-modal"]').forEach(btn => {
     btn.addEventListener('click', () => {
       const companyId = btn.dataset.companyId;
       pageSystem.toggleFavorite(companyId);
-      // Re-render modal
-      closeBrowseModal();
-      setTimeout(() => openBrowseAllModal(root), 0);
+
+      // Update button state in-place
+      const isFav = pageSystem.favoriteCompanyIds.includes(companyId);
+      btn.textContent = isFav ? '★' : '☆';
+      btn.classList.toggle('active', isFav);
+      btn.title = isFav ? 'Remove from favorites' : 'Add to favorites';
+
+      // Also refresh the dropdown UI if it's open
+      refreshPageSystemUI(root);
     });
   });
 
@@ -3715,6 +4090,195 @@ function handleBrowseSearch(query, root) {
   });
 }
 
+/**
+ * Cloud Settings Modal
+ */
+function renderCloudSettingsModal() {
+  const isConnected = syncState.username && syncState.status !== 'disconnected';
+  const statusClass = syncState.status || 'disconnected';
+
+  return `
+    <div class="cloud-modal-overlay" data-modal="cloud-settings">
+      <div class="cloud-modal">
+        <div class="cloud-modal-header">
+          <h3>Cloud Sync Settings</h3>
+          <button class="cloud-modal-close" data-action="close-cloud-modal" type="button">×</button>
+        </div>
+
+        <div class="cloud-modal-body">
+          <div class="cloud-modal-status" data-sync-state="${escapeAttr(statusClass)}">
+            <span class="cloud-status-dot"></span>
+            <span class="cloud-status-text">${escapeHtml(syncState.message || (isConnected ? 'Connected' : 'Local only'))}</span>
+          </div>
+
+          <div class="cloud-modal-input-group">
+            <label for="cloud-modal-username">Username</label>
+            <input
+              id="cloud-modal-username"
+              type="text"
+              inputmode="text"
+              autocomplete="off"
+              spellcheck="false"
+              data-cloud-username
+              placeholder="e.g. alex-w"
+              value="${escapeAttr(syncState.username || '')}"
+            />
+            <p class="cloud-modal-hint">No password needed. If data exists for this username, we'll load it; otherwise we'll create it.</p>
+          </div>
+
+          <div class="cloud-modal-actions">
+            ${isConnected ? `
+              <button class="cloud-modal-btn cloud-modal-btn--primary" data-action="cloud-pull" type="button">Pull Latest</button>
+              <button class="cloud-modal-btn cloud-modal-btn--ghost" data-action="cloud-disconnect" type="button">Disconnect</button>
+            ` : `
+              <button class="cloud-modal-btn cloud-modal-btn--primary" data-action="cloud-connect" type="button">Connect</button>
+            `}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function openCloudSettingsModal(root) {
+  const existing = document.querySelector('[data-modal="cloud-settings"]');
+  if (existing) existing.remove();
+
+  document.body.insertAdjacentHTML('beforeend', renderCloudSettingsModal());
+  attachCloudModalListeners(root);
+}
+
+function closeCloudSettingsModal() {
+  const modal = document.querySelector('[data-modal="cloud-settings"]');
+  if (modal) modal.remove();
+}
+
+function attachCloudModalListeners(root) {
+  const modal = document.querySelector('[data-modal="cloud-settings"]');
+  if (!modal) return;
+
+  // Close button
+  const closeBtn = modal.querySelector('[data-action="close-cloud-modal"]');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeCloudSettingsModal);
+  }
+
+  // Close on backdrop click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeCloudSettingsModal();
+  });
+
+  // Connect button
+  const connectBtn = modal.querySelector('[data-action="cloud-connect"]');
+  if (connectBtn) {
+    connectBtn.addEventListener('click', async () => {
+      const input = modal.querySelector('[data-cloud-username]');
+      await handleCloudConnectFromModal(input, root);
+    });
+  }
+
+  // Pull button
+  const pullBtn = modal.querySelector('[data-action="cloud-pull"]');
+  if (pullBtn) {
+    pullBtn.addEventListener('click', async () => {
+      await handleSyncRefresh(root);
+      closeCloudSettingsModal();
+      openCloudSettingsModal(root); // Reopen with updated state
+    });
+  }
+
+  // Disconnect button
+  const disconnectBtn = modal.querySelector('[data-action="cloud-disconnect"]');
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener('click', () => {
+      handleSyncDisconnect(root);
+      closeCloudSettingsModal();
+      openCloudSettingsModal(root); // Reopen with updated state
+      updateCloudUserIndicator();
+    });
+  }
+
+  // Enter key on input
+  const usernameInput = modal.querySelector('[data-cloud-username]');
+  if (usernameInput) {
+    usernameInput.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') {
+        await handleCloudConnectFromModal(usernameInput, root);
+      }
+    });
+    usernameInput.focus();
+  }
+}
+
+async function handleCloudConnectFromModal(input, root) {
+  const usernameRaw = input?.value || '';
+  const validation = validateUsername(usernameRaw);
+  if (!validation.valid) {
+    alert(validation.reason);
+    return;
+  }
+
+  const username = usernameRaw.trim();
+  const prevUsername = syncState.username;
+  if (prevUsername && prevUsername !== username) {
+    cancelQueuedSave(prevUsername);
+  }
+
+  setStoredSyncUsername(username);
+  setSyncState({ username, status: 'connecting', message: `Connecting @${username}`, lastError: '' });
+  updateCloudUserIndicator();
+
+  try {
+    const remote = await loadUserData(username);
+    if (remote?.pageSystem) {
+      suppressCloudSync = true;
+      pageSystem.importData(remote.pageSystem);
+      suppressCloudSync = false;
+
+      const newState = pageSystem.getCurrentPageState();
+      applyState(root, newState);
+      updateMasterCheckboxes(root);
+      refreshPageSystemUI(root);
+      setSyncState({
+        status: 'connected',
+        message: `Synced @${username}`,
+        lastPulled: Date.now(),
+        lastSynced: remote.updatedAt || Date.now()
+      });
+    } else {
+      await saveUserData(username, pageSystem.exportData());
+      setSyncState({
+        status: 'connected',
+        message: `Created cloud data for @${username}`,
+        lastSynced: Date.now()
+      });
+    }
+  } catch (error) {
+    console.error('[Cloud Sync] connect failed', error);
+    setSyncState({
+      status: 'error',
+      message: 'Cloud save failed (local only)',
+      lastError: error?.message || 'Cloud error'
+    });
+  } finally {
+    updateCloudUserIndicator();
+    closeCloudSettingsModal();
+    openCloudSettingsModal(root); // Reopen with updated state
+  }
+}
+
+function updateCloudUserIndicator() {
+  const indicator = document.querySelector('.header-cloud-user');
+  if (indicator) {
+    indicator.innerHTML = renderCloudUserIndicator();
+    // Re-attach the click handler
+    const changeBtn = indicator.querySelector('[data-action="open-cloud-settings"]');
+    if (changeBtn && pageSystemRoot) {
+      changeBtn.addEventListener('click', () => openCloudSettingsModal(pageSystemRoot));
+    }
+  }
+}
+
 function refreshPageSystemUI(root) {
   const pageSystemEl = root.querySelector('.page-system');
   if (!pageSystemEl) return;
@@ -3724,6 +4288,7 @@ function refreshPageSystemUI(root) {
 
   // Re-attach event listeners to the new elements
   attachPageSystemListeners(root);
+  updateSyncIndicators(root);
 }
 
 function buildMasterLabelLookup() {

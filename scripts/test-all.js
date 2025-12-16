@@ -7,7 +7,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tests = [
     'test-comprehensive.js', // Runs validation harness
     'test-calculator.js',
-    'test-email-templates-full.js',
     'test-packages.js'
 ];
 

@@ -6,12 +6,10 @@ export async function testPackages() {
   try {
     const { renderApp } = await import('../assets/js/dom.js');
     const { initializeCalculator } = await import('../assets/js/calculator.js');
-    const { initializeEmailTemplates } = await import('../assets/js/email-templates.js');
 
     const mount = document.getElementById('app');
     renderApp(mount);
     initializeCalculator();
-    initializeEmailTemplates();
     await waitForTasks(120);
 
     const root = document.querySelector('.page-shell');

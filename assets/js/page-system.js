@@ -22,6 +22,7 @@ export class PageSystem {
     this.companies = [];
     this.favoriteCompanyIds = [];
     this.recentCompanyIds = [];
+    this.changeHandler = null;
   }
 
   /**
@@ -121,38 +122,20 @@ export class PageSystem {
               isFavorite: false
             });
           });
-        }
+    }
 
-        // Clean up old keys after migration
-        localStorage.removeItem(OLD_PAGES_KEY);
-        // Don't remove old companies key yet in case migration fails
-      }
+    // Clean up old keys after migration
+    localStorage.removeItem(OLD_PAGES_KEY);
+    // Don't remove old companies key yet in case migration fails
+    }
 
-      // Ensure at least one company exists
-      if (this.companies.length === 0) {
-        this.createCompany('Untitled Company');
-      }
+    // Ensure at least one company exists
+    this.ensureIntegrity();
 
-      // Ensure currentCompanyId is set
-      if (!this.currentCompanyId || !this.companies.find(c => c.id === this.currentCompanyId)) {
-        this.currentCompanyId = this.companies[0].id;
-      }
+    this.save();
 
-      // Ensure all companies have required fields
-      this.companies.forEach(company => {
-        if (!company.createdAt) company.createdAt = Date.now();
-        if (!company.updatedAt) company.updatedAt = Date.now();
-        if (!company.lastAccessed) company.lastAccessed = Date.now();
-        if (company.isFavorite === undefined) company.isFavorite = false;
-        if (!company.currentPageId && company.pages.length > 0) {
-          company.currentPageId = company.pages[0].id;
-        }
-      });
-
-      this.save();
-
-    } catch (error) {
-      console.error('[PageSystem] Failed to load:', error);
+  } catch (error) {
+    console.error('[PageSystem] Failed to load:', error);
       // Fallback: Create empty company
       this.createCompany('Untitled Company');
     }
@@ -168,6 +151,7 @@ export class PageSystem {
       localStorage.setItem(COMPANIES_STORAGE_KEY, JSON.stringify(this.companies));
       localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(this.favoriteCompanyIds));
       localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(this.recentCompanyIds));
+      this.emitChange();
     } catch (error) {
       console.error('[PageSystem] Failed to save:', error);
 
@@ -253,22 +237,7 @@ export class PageSystem {
    * Create new company
    */
   createCompany(name = 'Untitled Company') {
-    const company = {
-      id: generateId('comp'),
-      name: name,
-      pages: [{
-        id: generateId('page'),
-        name: 'P1',
-        state: { panels: {}, packages: {} }
-      }],
-      currentPageId: null,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      lastAccessed: Date.now(),
-      isFavorite: false
-    };
-
-    company.currentPageId = company.pages[0].id;
+    const company = this.buildDefaultCompany(name);
     this.companies.push(company);
     this.currentCompanyId = company.id;
     this.trackRecentAccess(company.id);
@@ -596,5 +565,119 @@ export class PageSystem {
     company.currentPageId = defaultPage.id;
     company.updatedAt = Date.now();
     this.save();
+  }
+
+  /**
+   * Export a deep-copy of the current data for persistence/sync
+   */
+  exportData() {
+    return {
+      schemaVersion: 1,
+      currentCompanyId: this.currentCompanyId,
+      companies: JSON.parse(JSON.stringify(this.companies)),
+      favoriteCompanyIds: [...this.favoriteCompanyIds],
+      recentCompanyIds: [...this.recentCompanyIds],
+      updatedAt: Date.now()
+    };
+  }
+
+  /**
+   * Import data from an external source (e.g., cloud sync)
+   */
+  importData(data) {
+    if (!data || !Array.isArray(data.companies) || data.companies.length === 0) {
+      console.warn('[PageSystem] Import skipped: missing companies payload');
+      return false;
+    }
+
+    this.companies = JSON.parse(JSON.stringify(data.companies));
+    this.currentCompanyId = data.currentCompanyId || null;
+    this.favoriteCompanyIds = Array.isArray(data.favoriteCompanyIds) ? [...data.favoriteCompanyIds] : [];
+    this.recentCompanyIds = Array.isArray(data.recentCompanyIds) ? [...data.recentCompanyIds] : [];
+
+    this.ensureIntegrity();
+    this.save();
+    return true;
+  }
+
+  /**
+   * Attach a change handler to be notified after local saves
+   */
+  setChangeHandler(handler) {
+    this.changeHandler = typeof handler === 'function' ? handler : null;
+  }
+
+  emitChange() {
+    if (typeof this.changeHandler === 'function') {
+      try {
+        this.changeHandler(this.exportData());
+      } catch (error) {
+        console.error('[PageSystem] Change handler failed:', error);
+      }
+    }
+  }
+
+  /**
+   * Ensure companies/pages have required fields and defaults
+   */
+  ensureIntegrity() {
+    if (!Array.isArray(this.companies)) {
+      this.companies = [];
+    }
+
+    if (this.companies.length === 0) {
+      this.companies.push(this.buildDefaultCompany('Untitled Company'));
+    }
+
+    this.companies.forEach(company => {
+      if (!Array.isArray(company.pages)) company.pages = [];
+      if (company.pages.length === 0) {
+        company.pages.push({
+          id: generateId('page'),
+          name: 'P1',
+          state: { panels: {}, packages: {} }
+        });
+      }
+
+      company.createdAt = company.createdAt || Date.now();
+      company.updatedAt = company.updatedAt || Date.now();
+      company.lastAccessed = company.lastAccessed || Date.now();
+      company.isFavorite = company.isFavorite ?? false;
+      company.currentPageId = company.currentPageId || company.pages[0].id;
+
+      company.pages = company.pages.map(page => ({
+        id: page.id || generateId('page'),
+        name: page.name || 'P1',
+        state: page.state || { panels: {}, packages: {} }
+      }));
+    });
+
+    // Filter favorites/recent to known IDs
+    const companyIds = new Set(this.companies.map(c => c.id));
+    this.favoriteCompanyIds = (this.favoriteCompanyIds || []).filter(id => companyIds.has(id));
+    this.recentCompanyIds = (this.recentCompanyIds || []).filter(id => companyIds.has(id));
+
+    // Ensure current company is valid
+    if (!this.currentCompanyId || !companyIds.has(this.currentCompanyId)) {
+      this.currentCompanyId = this.companies[0].id;
+    }
+  }
+
+  buildDefaultCompany(name = 'Untitled Company') {
+    const pageId = generateId('page');
+    return {
+      id: generateId('comp'),
+      name,
+      pages: [{
+        id: pageId,
+        name: 'P1',
+        state: { panels: {}, packages: {} }
+      }],
+      currentPageId: pageId,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      lastAccessed: Date.now(),
+      isFavorite: false
+    };
   }
 }

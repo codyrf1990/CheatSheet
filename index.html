@@ -7,10 +7,8 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Packages & Maintenance Cheat Sheet</title>
-    <link rel="icon" type="image/png" href="assets/img/profile-icon.png?v=20251030">
-  <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="assets/img/fav.png">
   <link rel="stylesheet" href="assets/css/main.css?v=20251105.1">
-  <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" defer></script>
 </head>
 <body>
   <!-- Thanksgiving Feasts Counter -->
@@ -37,78 +35,8 @@
   <div id="app"></div>
 
 
-  <section class="email-template-section" aria-label="Email Templates">
-    <div class="email-template-card">
-
-
-
-      <div class="email-template-view" data-mode="browse">
-        <div class="email-template-layout">
-          <aside class="email-template-sidebar">
-            <label class="email-template-field">
-              <input type="search" placeholder="Search templates" data-field="search" aria-label="Search templates">
-            </label>
-
-            <div class="email-template-list" data-template-list role="listbox" tabindex="0" aria-label="Available email templates"></div>
-          </aside>
-          <div class="email-template-main">
-            <div class="email-template-compose" data-compose>
-              <header class="email-template-compose__header">
-                <div class="email-template-compose__title-wrap">
-                  <input class="email-template-compose__name" data-field="name" type="text" placeholder="Template name" aria-label="Template name" required>
-                </div>
-                <div class="email-template-compose__actions">
-                  <button class="email-template-btn" data-action="new-template" type="button">Add Template</button>
-                  <button class="email-template-btn" data-action="save-template" type="button">Save</button>
-                </div>
-              </header>
-              <form class="email-template-form" data-editor-form>
-                <input type="hidden" data-field="id">
-                <div class="email-template-form__field">
-                  <label>
-                    <div class="email-template-label-row">
-                      <span>Subject</span>
-                      <button class="email-template-btn email-template-btn--ghost email-template-btn--xs email-template-btn--icon" data-action="copy-subject-inline" type="button" aria-label="Copy subject" title="Copy subject">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg>
-                      </button>
-                    </div>
-                    <input type="text" data-field="subject" placeholder="Email subject" required>
-                  </label>
-                </div>
-                <div class="email-template-form__field email-template-form__field--body">
-                  <div class="email-template-label-row">
-                    <label for="email-body-editor">Body</label>
-                    <button class="email-template-btn email-template-btn--ghost email-template-btn--xs email-template-btn--icon" data-action="copy-body-inline" type="button" aria-label="Copy body" title="Copy body">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z" fill="currentColor"/></svg>
-                    </button>
-                  </div>
-                  <div id="email-body-editor"></div>
-                  <textarea data-field="body" hidden aria-hidden="true"></textarea>
-                </div>
-                <div class="email-template-form__footer">
-                  <div class="email-template-toast email-template-toast--inset" data-template-toast hidden></div>
-                  <button class="email-template-btn email-template-btn--primary" data-action="launch-outlook" type="button" disabled>Send to Outlook</button>
-                </div>
-              </form>
-              <p class="email-template-preview__warning" data-preview-warning hidden></p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="post-matcher-section" aria-label="Post Processor SKU Matcher">
-    <div class="post-matcher-card" data-post-matcher-container></div>
-  </section>
-
-  <section class="chatbot-section" aria-label="Chatbot Assistant">
-    <div data-chatbot-container></div>
-  </section>
-
   <script src="assets/Auz-Bug-8eac7b7/bug-min.js"></script>
   <script src="assets/js/turkey-controller.js?v=20250218.6"></script>
   <script type="module" src="assets/js/app.js?v=20251105.1"></script>
-  <script type="module" src="assets/js/dev-cache-bust.js?v=20250110.20"></script>
 </body>
 </html>
