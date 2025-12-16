@@ -21,6 +21,17 @@ import {
 const THANKSGIVING_MODE = false;
 const CHRISTMAS_MODE = true;
 
+// Apply christmas class immediately to prevent flash of Thanksgiving elements
+if (CHRISTMAS_MODE && typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.body.classList.add('christmas-active');
+  });
+  // Also try immediately in case DOM is already loaded
+  if (document.body) {
+    document.body.classList.add('christmas-active');
+  }
+}
+
 let editMode = false;
 let packageAddMode = false;
 let packageRemoveMode = false;
@@ -323,7 +334,10 @@ export function renderApp(mount) {
     document.body.classList.add('christmas-active');
     const wrapper = document.createElement('div');
     wrapper.innerHTML = renderChristmasOverlay();
-    root.appendChild(wrapper.firstElementChild);
+    // Append ALL children (overlay, gift-counter, audio toggle, audio element)
+    while (wrapper.firstElementChild) {
+      root.appendChild(wrapper.firstElementChild);
+    }
     // Initialize gingerbread hunt game
     initGingerbreadHunt();
     // Setup audio controls
@@ -1875,26 +1889,28 @@ function renderChristmasOverlay() {
     </div>
     <div class="gift-counter">
       <div class="gift-counter-content">
+        <div class="audio-controls-row">
+          <button class="audio-btn" id="christmas-audio-mute" title="Mute/Unmute">🔇</button>
+          <input type="range" class="audio-volume-slider" id="christmas-audio-volume" min="0" max="100" value="30" title="Volume">
+          <button class="audio-btn" id="christmas-audio-skip" title="Skip forward 30s">⏭️</button>
+        </div>
         <div class="gift-row">
-          <span class="gift-icon">🎁</span>
-          <span class="gift-label">Gifts</span>
+          <span class="gift-icon">🍪</span>
+          <span class="gift-label">Caught</span>
           <span class="gift-count" id="gift-count">0</span>
         </div>
         <div class="streak-row">
-          <span class="streak-icon">❄️</span>
+          <span class="streak-icon">🔥</span>
           <span class="streak-label">Streak</span>
           <span class="streak-count" id="streak-count">0</span>
         </div>
         <div class="highest-row">
-          <span class="highest-icon">⭐</span>
+          <span class="highest-icon">🏆</span>
           <span class="highest-label">Best</span>
           <span class="highest-count" id="highest-streak-count">0</span>
         </div>
       </div>
     </div>
-    <button class="christmas-audio-toggle" id="christmas-audio-toggle" title="Toggle music">
-      🎵
-    </button>
     <audio id="christmas-audio" class="christmas-audio" loop preload="none">
       <source src="assets/christmas/sounds/lofi-christmas.mp3" type="audio/mpeg">
     </audio>
@@ -1903,60 +1919,128 @@ function renderChristmasOverlay() {
 
 function setupChristmasAudio() {
   const audio = document.getElementById('christmas-audio');
-  const toggle = document.getElementById('christmas-audio-toggle');
+  const muteBtn = document.getElementById('christmas-audio-mute');
+  const volumeSlider = document.getElementById('christmas-audio-volume');
+  const skipBtn = document.getElementById('christmas-audio-skip');
 
-  if (!audio || !toggle) return;
+  if (!audio) return;
 
   let isPlaying = false;
+  let isMuted = false;
+  let hasRandomized = false;
   audio.volume = 0.3;
+  audio.loop = true; // Ensure it loops
 
-  // Start in muted state visually
-  toggle.classList.add('muted');
-  toggle.textContent = '🔇';
-  toggle.title = 'Click to play Christmas music';
+  // Update mute button state
+  const updateMuteButton = () => {
+    if (muteBtn) {
+      if (!isPlaying || isMuted) {
+        muteBtn.textContent = '🔇';
+        muteBtn.title = 'Click to play music';
+      } else {
+        muteBtn.textContent = '🔊';
+        muteBtn.title = 'Click to mute';
+      }
+    }
+  };
+
+  updateMuteButton();
 
   const playAudio = () => {
-    audio.play().then(() => {
-      isPlaying = true;
-      toggle.classList.remove('muted');
-      toggle.textContent = '🎵';
-      toggle.title = 'Click to pause music';
-    }).catch(e => {
-      console.log('Audio play blocked:', e);
-      toggle.title = 'Click again to play music';
-    });
+    // Set random start position on first play
+    const startPlaying = () => {
+      if (!hasRandomized && audio.duration) {
+        hasRandomized = true;
+        audio.currentTime = Math.random() * audio.duration;
+      }
+      audio.play().then(() => {
+        isPlaying = true;
+        isMuted = false;
+        updateMuteButton();
+      }).catch(e => {
+        console.log('Audio play blocked:', e);
+      });
+    };
+
+    // If metadata is loaded, start immediately; otherwise wait for it
+    if (audio.readyState >= 1) {
+      startPlaying();
+    } else {
+      audio.addEventListener('loadedmetadata', startPlaying, { once: true });
+      audio.load(); // Trigger loading
+    }
   };
 
   const pauseAudio = () => {
     audio.pause();
     isPlaying = false;
-    toggle.classList.add('muted');
-    toggle.textContent = '🔇';
-    toggle.title = 'Click to play Christmas music';
+    updateMuteButton();
   };
 
-  toggle.addEventListener('click', (e) => {
-    e.stopPropagation(); // Prevent triggering miss detection
-    if (isPlaying) {
-      pauseAudio();
-    } else {
+  const toggleMute = () => {
+    if (!isPlaying) {
+      // Start playing
       playAudio();
+    } else if (isMuted) {
+      // Unmute
+      audio.muted = false;
+      isMuted = false;
+      updateMuteButton();
+    } else {
+      // Mute
+      audio.muted = true;
+      isMuted = true;
+      updateMuteButton();
     }
-  });
-
-  // Try auto-start on first user interaction anywhere
-  let autoStartAttempted = false;
-  const tryAutoStart = (e) => {
-    if (autoStartAttempted) return;
-    // Don't auto-start if clicking the toggle itself
-    if (e.target.closest('.christmas-audio-toggle')) return;
-
-    autoStartAttempted = true;
-    playAudio();
-    document.removeEventListener('click', tryAutoStart);
   };
 
-  document.addEventListener('click', tryAutoStart);
+  // Mute button click
+  if (muteBtn) {
+    muteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleMute();
+    });
+  }
+
+  // Volume slider
+  if (volumeSlider) {
+    volumeSlider.addEventListener('input', (e) => {
+      e.stopPropagation();
+      const volume = parseInt(e.target.value) / 100;
+      audio.volume = volume;
+      if (volume === 0) {
+        isMuted = true;
+      } else if (isMuted) {
+        isMuted = false;
+        audio.muted = false;
+      }
+      updateMuteButton();
+    });
+
+    // Prevent clicks from triggering miss detection
+    volumeSlider.addEventListener('click', (e) => e.stopPropagation());
+  }
+
+  // Skip button - skip forward 30 seconds
+  if (skipBtn) {
+    skipBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      audio.currentTime = Math.min(audio.currentTime + 30, audio.duration || audio.currentTime + 30);
+    });
+  }
+
+  // Expose function to start audio on first gingerbread click
+  let audioStarted = false;
+  window.startChristmasAudioOnFirstHit = () => {
+    if (audioStarted) return;
+    audioStarted = true;
+    playAudio();
+  };
+
+  // Check if audio was requested before setup completed
+  if (window._christmasAudioRequested) {
+    window.startChristmasAudioOnFirstHit();
+  }
 }
 
 function initGingerbreadHunt() {

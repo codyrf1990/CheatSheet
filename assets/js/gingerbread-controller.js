@@ -22,8 +22,8 @@ var DIR_EAST = 2;   // Running right
 var DIR_NORTH = 3;  // Facing away
 
 // Gingerbread types
-var TYPE_RUNNER = 'runner';
-var TYPE_WIGGLER = 'wiggler';
+var TYPE_RUNNER = 'runner';      // Uses East/West rows based on direction
+var TYPE_WIGGLER = 'wiggler';    // Uses South row (facing user) while moving
 
 // Gift counter and streak tracking
 var GiftCounter = 0;
@@ -76,6 +76,14 @@ function saveGingerbreadStats() {
 function incrementGiftCounter() {
     GiftCounter++;
     saveGingerbreadStats();
+
+    // Start audio on first hit
+    if (typeof window.startChristmasAudioOnFirstHit === 'function') {
+        window.startChristmasAudioOnFirstHit();
+    } else {
+        // Flag for later if audio setup hasn't completed yet
+        window._christmasAudioRequested = true;
+    }
 
     var countEl = document.getElementById('gift-count');
     if (countEl) {
@@ -196,20 +204,19 @@ var GingerbreadController = function() {
 
         zoom: 1,
 
-        minDelay: 400,
-        maxDelay: 3000,
+        minDelay: 800,
+        maxDelay: 4000,
 
-        minSpeed: 20,
-        maxSpeed: 40,
+        minSpeed: 8,
+        maxSpeed: 18,
 
-        minBugs: 5,
-        maxBugs: 8,
+        minBugs: 4,
+        maxBugs: 6,
 
         mouseOver: 'nothing'
     };
 
     this.options = mergeOptions(this.options, gingerbreadOptions);
-    this.wigglers = []; // Separate array for wigglers
     this.initialize.apply(this, arguments);
 };
 
@@ -224,12 +231,13 @@ GingerbreadController.prototype.initialize = function(options) {
     BugDispatch.initialize.call(this, options);
 
     for (var i = 0; i < this.bugs.length; i++) {
-        this.patchGingerbreadBehaviors(this.bugs[i], TYPE_RUNNER);
+        // Randomly assign type - 30% chance of wiggler
+        var type = Math.random() < 0.3 ? TYPE_WIGGLER : TYPE_RUNNER;
+        this.patchGingerbreadBehaviors(this.bugs[i], type);
     }
 
     this.ensurePopulation();
     this.startPopulationMonitor();
-    this.spawnWigglers();
 
     loadGingerbreadStats();
     setTimeout(function() {
@@ -240,314 +248,28 @@ GingerbreadController.prototype.initialize = function(options) {
 };
 
 /**
- * Spawn wiggler gingerbread men that dance in place
- */
-GingerbreadController.prototype.spawnWigglers = function() {
-    var numWigglers = 2; // Number of wigglers to spawn
-    var scale = GINGERBREAD_SCALE;
-    var displayWidth = GINGERBREAD_FRAME_WIDTH * scale;
-    var displayHeight = GINGERBREAD_FRAME_HEIGHT * scale;
-    var sheetWidth = GINGERBREAD_FRAME_WIDTH * GINGERBREAD_COLS * scale;
-    var sheetHeight = GINGERBREAD_FRAME_HEIGHT * GINGERBREAD_ROWS * scale;
-    var controller = this;
-
-    for (var i = 0; i < numWigglers; i++) {
-        var wiggler = {
-            alive: true,
-            _type: TYPE_WIGGLER,
-            _controller: controller,
-            walkIndex: Math.floor(Math.random() * GINGERBREAD_COLS),
-            animationSpeed: 150 + Math.random() * 100 // Vary wiggle speed
-        };
-
-        // Create DOM element
-        var el = document.createElement('div');
-        el.className = 'bug gingerbread-wiggler';
-        el.style.position = 'fixed';
-        el.style.width = displayWidth + 'px';
-        el.style.height = displayHeight + 'px';
-        el.style.overflow = 'hidden';
-        el.style.imageRendering = 'pixelated';
-        el.style.backgroundImage = 'url("' + GINGERBREAD_SPRITE + '")';
-        el.style.backgroundRepeat = 'no-repeat';
-        el.style.backgroundColor = 'transparent';
-        el.style.setProperty('background-size', sheetWidth + 'px ' + sheetHeight + 'px', 'important');
-        el.style.zIndex = '9999';
-        el.style.cursor = 'crosshair';
-        el.style.pointerEvents = 'auto';
-
-        // Position randomly along the bottom
-        var viewportWidth = document.documentElement.clientWidth;
-        var viewportHeight = document.documentElement.clientHeight;
-        var x = Math.random() * (viewportWidth - displayWidth - 100) + 50;
-        var y = viewportHeight - displayHeight - 30 - Math.random() * 50;
-
-        el.style.left = x + 'px';
-        el.style.top = y + 'px';
-
-        wiggler.bug = el;
-        wiggler.x = x;
-        wiggler.y = y;
-
-        // Apply initial frame (South row for facing user)
-        var col = wiggler.walkIndex % GINGERBREAD_COLS;
-        var posX = -(col * GINGERBREAD_FRAME_WIDTH * scale);
-        var posY = -(DIR_SOUTH * GINGERBREAD_FRAME_HEIGHT * scale);
-        el.style.backgroundPosition = posX + 'px ' + posY + 'px';
-
-        document.body.appendChild(el);
-
-        // Wiggle animation
-        wiggler.animateWiggle = function() {
-            if (!this.alive || !this.bug) return;
-
-            this.walkIndex = (this.walkIndex + 1) % GINGERBREAD_COLS;
-            var col = this.walkIndex;
-            var posX = -(col * GINGERBREAD_FRAME_WIDTH * scale);
-            var posY = -(DIR_SOUTH * GINGERBREAD_FRAME_HEIGHT * scale);
-            this.bug.style.backgroundPosition = posX + 'px ' + posY + 'px';
-
-            var self = this;
-            this.wiggleTimer = setTimeout(function() {
-                self.animateWiggle();
-            }, self.animationSpeed);
-        };
-
-        // Die function for wigglers
-        wiggler.die = function() {
-            if (!this.alive) return;
-
-            if (this.wiggleTimer) {
-                clearTimeout(this.wiggleTimer);
-                this.wiggleTimer = null;
-            }
-
-            this.alive = false;
-            this.bug.classList.add('bug-dead');
-
-            incrementGiftCounter();
-            incrementStreakCounter();
-
-            var currentTop = this.y;
-            var groundLevel = document.documentElement.clientHeight - displayHeight - 20;
-            var startTime = performance.now();
-            var fallDuration = 600;
-            var self = this;
-            var rotationSpeed = (Math.random() > 0.5 ? 1 : -1) * 360;
-
-            var fall = function(timestamp) {
-                var elapsed = timestamp - startTime;
-                var progress = Math.min(elapsed / fallDuration, 1);
-                var eased = 1 - Math.pow(1 - progress, 2.5);
-                var newTop = currentTop + (groundLevel - currentTop) * eased;
-                var rotation = rotationSpeed * progress;
-
-                self.bug.style.transform = 'rotate(' + rotation + 'deg)';
-                self.bug.style.top = newTop + 'px';
-
-                if (progress < 1) {
-                    self.dropTimer = requestAnimationFrame(fall);
-                } else {
-                    self.bug.style.transition = 'opacity 0.5s';
-                    self.bug.style.opacity = '0';
-                    setTimeout(function() {
-                        if (self.bug && self.bug.parentNode) {
-                            self.bug.parentNode.removeChild(self.bug);
-                        }
-                        // Respawn a new wiggler
-                        if (self._controller) {
-                            self._controller.respawnWiggler(self);
-                        }
-                    }, 500);
-                }
-            };
-
-            self.dropTimer = requestAnimationFrame(fall);
-        };
-
-        // Click handler
-        (function(w) {
-            w.bug.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (w.alive) {
-                    w.die();
-                }
-            });
-        })(wiggler);
-
-        wiggler.animateWiggle();
-        this.wigglers.push(wiggler);
-    }
-};
-
-/**
- * Respawn a wiggler after it dies
- */
-GingerbreadController.prototype.respawnWiggler = function(oldWiggler) {
-    var idx = this.wigglers.indexOf(oldWiggler);
-    if (idx > -1) {
-        this.wigglers.splice(idx, 1);
-    }
-
-    var controller = this;
-    setTimeout(function() {
-        controller.spawnSingleWiggler();
-    }, 1000 + Math.random() * 2000);
-};
-
-/**
- * Spawn a single wiggler
- */
-GingerbreadController.prototype.spawnSingleWiggler = function() {
-    var scale = GINGERBREAD_SCALE;
-    var displayWidth = GINGERBREAD_FRAME_WIDTH * scale;
-    var displayHeight = GINGERBREAD_FRAME_HEIGHT * scale;
-    var sheetWidth = GINGERBREAD_FRAME_WIDTH * GINGERBREAD_COLS * scale;
-    var sheetHeight = GINGERBREAD_FRAME_HEIGHT * GINGERBREAD_ROWS * scale;
-    var controller = this;
-
-    var wiggler = {
-        alive: true,
-        _type: TYPE_WIGGLER,
-        _controller: controller,
-        walkIndex: Math.floor(Math.random() * GINGERBREAD_COLS),
-        animationSpeed: 150 + Math.random() * 100
-    };
-
-    var el = document.createElement('div');
-    el.className = 'bug gingerbread-wiggler';
-    el.style.position = 'fixed';
-    el.style.width = displayWidth + 'px';
-    el.style.height = displayHeight + 'px';
-    el.style.overflow = 'hidden';
-    el.style.imageRendering = 'pixelated';
-    el.style.backgroundImage = 'url("' + GINGERBREAD_SPRITE + '")';
-    el.style.backgroundRepeat = 'no-repeat';
-    el.style.backgroundColor = 'transparent';
-    el.style.setProperty('background-size', sheetWidth + 'px ' + sheetHeight + 'px', 'important');
-    el.style.zIndex = '9999';
-    el.style.cursor = 'crosshair';
-    el.style.pointerEvents = 'auto';
-    el.style.opacity = '0';
-    el.style.transition = 'opacity 0.3s';
-
-    var viewportWidth = document.documentElement.clientWidth;
-    var viewportHeight = document.documentElement.clientHeight;
-    var x = Math.random() * (viewportWidth - displayWidth - 100) + 50;
-    var y = viewportHeight - displayHeight - 30 - Math.random() * 50;
-
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
-
-    wiggler.bug = el;
-    wiggler.x = x;
-    wiggler.y = y;
-
-    var col = wiggler.walkIndex % GINGERBREAD_COLS;
-    var posX = -(col * GINGERBREAD_FRAME_WIDTH * scale);
-    var posY = -(DIR_SOUTH * GINGERBREAD_FRAME_HEIGHT * scale);
-    el.style.backgroundPosition = posX + 'px ' + posY + 'px';
-
-    document.body.appendChild(el);
-
-    // Fade in
-    setTimeout(function() {
-        el.style.opacity = '1';
-    }, 50);
-
-    wiggler.animateWiggle = function() {
-        if (!this.alive || !this.bug) return;
-
-        this.walkIndex = (this.walkIndex + 1) % GINGERBREAD_COLS;
-        var col = this.walkIndex;
-        var posX = -(col * GINGERBREAD_FRAME_WIDTH * scale);
-        var posY = -(DIR_SOUTH * GINGERBREAD_FRAME_HEIGHT * scale);
-        this.bug.style.backgroundPosition = posX + 'px ' + posY + 'px';
-
-        var self = this;
-        this.wiggleTimer = setTimeout(function() {
-            self.animateWiggle();
-        }, self.animationSpeed);
-    };
-
-    wiggler.die = function() {
-        if (!this.alive) return;
-
-        if (this.wiggleTimer) {
-            clearTimeout(this.wiggleTimer);
-            this.wiggleTimer = null;
-        }
-
-        this.alive = false;
-        this.bug.classList.add('bug-dead');
-
-        incrementGiftCounter();
-        incrementStreakCounter();
-
-        var currentTop = this.y;
-        var groundLevel = document.documentElement.clientHeight - displayHeight - 20;
-        var startTime = performance.now();
-        var fallDuration = 600;
-        var self = this;
-        var rotationSpeed = (Math.random() > 0.5 ? 1 : -1) * 360;
-
-        var fall = function(timestamp) {
-            var elapsed = timestamp - startTime;
-            var progress = Math.min(elapsed / fallDuration, 1);
-            var eased = 1 - Math.pow(1 - progress, 2.5);
-            var newTop = currentTop + (groundLevel - currentTop) * eased;
-            var rotation = rotationSpeed * progress;
-
-            self.bug.style.transform = 'rotate(' + rotation + 'deg)';
-            self.bug.style.top = newTop + 'px';
-
-            if (progress < 1) {
-                self.dropTimer = requestAnimationFrame(fall);
-            } else {
-                self.bug.style.transition = 'opacity 0.5s';
-                self.bug.style.opacity = '0';
-                setTimeout(function() {
-                    if (self.bug && self.bug.parentNode) {
-                        self.bug.parentNode.removeChild(self.bug);
-                    }
-                    if (self._controller) {
-                        self._controller.respawnWiggler(self);
-                    }
-                }, 500);
-            }
-        };
-
-        self.dropTimer = requestAnimationFrame(fall);
-    };
-
-    (function(w) {
-        w.bug.addEventListener('click', function(e) {
-            e.stopPropagation();
-            if (w.alive) {
-                w.die();
-            }
-        });
-    })(wiggler);
-
-    wiggler.animateWiggle();
-    this.wigglers.push(wiggler);
-};
-
-/**
- * Patch individual gingerbread instance (runners)
+ * Patch individual gingerbread instance
+ * @param {Object} gingerbread - The bug instance
+ * @param {string} type - TYPE_RUNNER (uses East/West) or TYPE_WIGGLER (uses South)
  */
 GingerbreadController.prototype.patchGingerbreadBehaviors = function(gingerbread, type) {
     if (!gingerbread || !gingerbread.bug) return;
 
     var controller = this;
     var scale = GINGERBREAD_SCALE;
+    var isWiggler = type === TYPE_WIGGLER;
 
     if (gingerbread._gingerbreadPatched) {
         gingerbread.walkFrameCounter = 0;
         gingerbread.walkIndex = 0;
         gingerbread._lastX = undefined;
         gingerbread._movingRight = Math.random() > 0.5;
-        gingerbread._currentRow = gingerbread._movingRight ? DIR_EAST : DIR_WEST;
+        // Wigglers always use South row, runners use East/West
+        if (gingerbread._type === TYPE_WIGGLER) {
+            gingerbread._currentRow = DIR_SOUTH;
+        } else {
+            gingerbread._currentRow = gingerbread._movingRight ? DIR_EAST : DIR_WEST;
+        }
         gingerbread.alive = true;
         gingerbread.applyFrame();
         return;
@@ -567,7 +289,8 @@ GingerbreadController.prototype.patchGingerbreadBehaviors = function(gingerbread
     gingerbread.walkFrameCounter = 0;
     gingerbread.walkIndex = 0;
     gingerbread._movingRight = Math.random() > 0.5;
-    gingerbread._currentRow = gingerbread._movingRight ? DIR_EAST : DIR_WEST;
+    // Wigglers always use South row (facing user), runners use direction-based rows
+    gingerbread._currentRow = isWiggler ? DIR_SOUTH : (gingerbread._movingRight ? DIR_EAST : DIR_WEST);
     gingerbread._lastX = undefined;
 
     // Element dimensions (scaled)
@@ -592,7 +315,8 @@ GingerbreadController.prototype.patchGingerbreadBehaviors = function(gingerbread
 
     /**
      * Apply the current frame to the sprite
-     * Uses proper East (row 2) or West (row 1) based on direction
+     * Runners: East (row 2) or West (row 1) based on direction
+     * Wigglers: Always South (row 0) facing user
      */
     gingerbread.applyFrame = function() {
         if (!this.bug) return;
@@ -609,47 +333,42 @@ GingerbreadController.prototype.patchGingerbreadBehaviors = function(gingerbread
 
     gingerbread.applyFrame();
 
+    // Track time for wiggler animation
+    gingerbread._lastWiggleTime = Date.now();
+
     // Override walkFrame for animation
     gingerbread.walkFrame = function() {
         if (!this.bug) return;
 
-        var currentX = this.bug.left || 0;
-        var distance = Math.abs(this._lastX == null ? 0 : currentX - this._lastX);
-        this._lastX = currentX;
+        var now = Date.now();
 
-        this.walkFrameCounter = (this.walkFrameCounter || 0) + distance;
-        var frameThreshold = GINGERBREAD_FRAME_WIDTH;
-
-        if (this.walkFrameCounter >= frameThreshold) {
-            this.walkFrameCounter = 0;
-            this.walkIndex = (this.walkIndex + 1) % GINGERBREAD_COLS;
+        if (this._type === TYPE_WIGGLER) {
+            // Wigglers use time-based animation (faster wiggle)
+            var wiggleInterval = 120; // ms between frames
+            if (now - this._lastWiggleTime >= wiggleInterval) {
+                this._lastWiggleTime = now;
+                this.walkIndex = (this.walkIndex + 1) % GINGERBREAD_COLS;
+            }
+        } else {
+            // Runners use time-based animation too (faster run cycle)
+            var runInterval = 100; // ms between frames - fast running
+            if (now - this._lastWiggleTime >= runInterval) {
+                this._lastWiggleTime = now;
+                this.walkIndex = (this.walkIndex + 1) % GINGERBREAD_COLS;
+            }
         }
 
         this.applyFrame();
     };
 
-    // Override moveBug for position and direction
+    // Override moveBug for position only - direction is set once at spawn
     gingerbread.moveBug = function(x, y) {
-        if (typeof this._lastX === 'number') {
-            var deltaX = x - this._lastX;
-            if (Math.abs(deltaX) > 0.5) {
-                var wasMovingRight = this._movingRight;
-                this._movingRight = deltaX > 0;
-
-                // Update row when direction changes
-                if (wasMovingRight !== this._movingRight) {
-                    this._currentRow = this._movingRight ? DIR_EAST : DIR_WEST;
-                }
-            }
-        }
-
         this.bug.left = x;
         this.bug.top = y;
 
         var translateX = Math.round(x);
         var translateY = Math.round(y);
 
-        // No flipping needed - we use proper directional sprites
         this.transform('translate(' + translateX + 'px, ' + translateY + 'px)');
     };
 
@@ -702,7 +421,12 @@ GingerbreadController.prototype.patchGingerbreadBehaviors = function(gingerbread
                     self.walkFrameCounter = 0;
                     self.walkIndex = 0;
                     self._movingRight = Math.random() > 0.5;
-                    self._currentRow = self._movingRight ? DIR_EAST : DIR_WEST;
+                    // Preserve type - wigglers stay South, runners use direction
+                    if (self._type === TYPE_WIGGLER) {
+                        self._currentRow = DIR_SOUTH;
+                    } else {
+                        self._currentRow = self._movingRight ? DIR_EAST : DIR_WEST;
+                    }
                     self.applyFrame();
                     self.remove();
                     if (self._controller) {
@@ -726,7 +450,12 @@ GingerbreadController.prototype.patchGingerbreadBehaviors = function(gingerbread
         this.walkIndex = 0;
         this._lastX = undefined;
         this._movingRight = Math.random() > 0.5;
-        this._currentRow = this._movingRight ? DIR_EAST : DIR_WEST;
+        // Preserve type - wigglers stay South, runners use direction
+        if (this._type === TYPE_WIGGLER) {
+            this._currentRow = DIR_SOUTH;
+        } else {
+            this._currentRow = this._movingRight ? DIR_EAST : DIR_WEST;
+        }
         this.alive = true;
         this.stationary = false;
         this.toggle_stationary_counter = 9999;
@@ -750,8 +479,8 @@ GingerbreadController.prototype.spawnGingerbread = function() {
 
     if (aliveCount >= this.options.maxBugs) return;
 
-    // Progressive difficulty
-    var difficultyMultiplier = Math.min(1 + (GiftCounter / 50), 2);
+    // Progressive difficulty (very gentle scaling)
+    var difficultyMultiplier = Math.min(1 + (GiftCounter / 200), 1.25);
 
     var clonedOptions = JSON.parse(JSON.stringify(this.options));
     clonedOptions.wingsOpen = true;
@@ -760,7 +489,11 @@ GingerbreadController.prototype.spawnGingerbread = function() {
 
     var gingerbread = SpawnBug();
     gingerbread.initialize(this.transform, clonedOptions);
-    this.patchGingerbreadBehaviors(gingerbread, TYPE_RUNNER);
+
+    // Randomly assign type - 30% chance of wiggler (facing user while moving)
+    var type = Math.random() < 0.3 ? TYPE_WIGGLER : TYPE_RUNNER;
+    this.patchGingerbreadBehaviors(gingerbread, type);
+
     this.bugs.push(gingerbread);
     gingerbread.walkIn();
     this.add_events_to_bug(gingerbread);
@@ -796,14 +529,6 @@ GingerbreadController.prototype.stopPopulationMonitor = function() {
 
 GingerbreadController.prototype.stop = function() {
     this.stopPopulationMonitor();
-
-    // Stop wigglers
-    for (var i = 0; i < this.wigglers.length; i++) {
-        if (this.wigglers[i].wiggleTimer) {
-            clearTimeout(this.wigglers[i].wiggleTimer);
-        }
-    }
-
     if (typeof BugDispatch.stop === 'function') {
         BugDispatch.stop.call(this);
     }
@@ -811,18 +536,6 @@ GingerbreadController.prototype.stop = function() {
 
 GingerbreadController.prototype.end = function() {
     this.stopPopulationMonitor();
-
-    // Remove wigglers
-    for (var i = 0; i < this.wigglers.length; i++) {
-        if (this.wigglers[i].wiggleTimer) {
-            clearTimeout(this.wigglers[i].wiggleTimer);
-        }
-        if (this.wigglers[i].bug && this.wigglers[i].bug.parentNode) {
-            this.wigglers[i].bug.parentNode.removeChild(this.wigglers[i].bug);
-        }
-    }
-    this.wigglers = [];
-
     if (typeof BugDispatch.end === 'function') {
         BugDispatch.end.call(this);
     }
