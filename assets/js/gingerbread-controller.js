@@ -361,8 +361,21 @@ GingerbreadController.prototype.patchGingerbreadBehaviors = function(gingerbread
         this.applyFrame();
     };
 
-    // Override moveBug for position only - direction is set once at spawn
+    // Override moveBug - update sprite direction based on movement
     gingerbread.moveBug = function(x, y) {
+        // Detect direction change for runners
+        if (this._type === TYPE_RUNNER && this._lastX !== undefined) {
+            var dx = x - this._lastX;
+            if (dx > 0.5 && !this._movingRight) {
+                this._movingRight = true;
+                this._currentRow = DIR_EAST;
+            } else if (dx < -0.5 && this._movingRight) {
+                this._movingRight = false;
+                this._currentRow = DIR_WEST;
+            }
+        }
+        this._lastX = x;
+
         this.bug.left = x;
         this.bug.top = y;
 
