@@ -79,24 +79,76 @@ function formatSyncTime(timestamp) {
   }
 }
 
+/**
+ * Toast notification system
+ */
+let toastContainer = null;
+let toastTimer = null;
+
+function showToast(message, type = 'info') {
+  // Create container if it doesn't exist
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container';
+    document.body.appendChild(toastContainer);
+  }
+
+  // Clear existing toast
+  if (toastTimer) {
+    clearTimeout(toastTimer);
+  }
+  toastContainer.innerHTML = '';
+
+  // Create toast element
+  const toast = document.createElement('div');
+  toast.className = `toast toast--${type}`;
+
+  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
+  toast.innerHTML = `
+    <span class="toast-icon">${icon}</span>
+    <span class="toast-message">${message}</span>
+  `;
+
+  toastContainer.appendChild(toast);
+
+  // Trigger animation
+  requestAnimationFrame(() => {
+    toast.classList.add('toast--visible');
+  });
+
+  // Auto-dismiss after 3 seconds
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('toast--visible');
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300);
+  }, 3000);
+}
+
 function renderCloudUserIndicator() {
   const isConnected = syncState.username && syncState.status !== 'disconnected';
   const statusClass = syncState.status || 'disconnected';
 
   if (isConnected) {
+    const syncIcon = syncState.status === 'syncing'
+      ? '<span class="sync-spinner"></span>'
+      : '';
     return `
       <div class="cloud-user-indicator" data-sync-state="${escapeAttr(statusClass)}">
         <span class="cloud-user-icon">👤</span>
         <span class="cloud-user-name">${escapeHtml(syncState.username)}</span>
-        <button class="cloud-user-change" data-action="open-cloud-settings" type="button">change</button>
+        ${syncIcon}
+        <button class="cloud-user-change" data-action="open-cloud-settings" type="button">Account</button>
       </div>
     `;
   }
 
   return `
     <div class="cloud-user-indicator" data-sync-state="disconnected">
-      <span class="cloud-user-label">Local only</span>
-      <button class="cloud-user-change" data-action="open-cloud-settings" type="button">sync</button>
+      <span class="cloud-user-label">Not signed in</span>
+      <button class="cloud-user-change" data-action="open-cloud-settings" type="button">Sign In</button>
     </div>
   `;
 }
@@ -4433,21 +4485,49 @@ function handleBrowseSearch(query, root) {
 function renderCloudSettingsModal() {
   const isConnected = syncState.username && syncState.status !== 'disconnected';
   const statusClass = syncState.status || 'disconnected';
+  const modalTitle = isConnected ? 'Account' : 'Sign In';
 
+  if (isConnected) {
+    // Connected state - show account info
+    const lastSynced = syncState.status === 'syncing' ? 'Syncing...' : 'Just now';
+    return `
+      <div class="cloud-modal-overlay" data-modal="cloud-settings">
+        <div class="cloud-modal">
+          <div class="cloud-modal-header">
+            <h3>${modalTitle}</h3>
+            <button class="cloud-modal-close" data-action="close-cloud-modal" type="button">×</button>
+          </div>
+
+          <div class="cloud-modal-body">
+            <div class="cloud-modal-account-card" data-sync-state="${escapeAttr(statusClass)}">
+              <div class="cloud-account-row">
+                <span class="cloud-account-icon">👤</span>
+                <span class="cloud-account-name">${escapeHtml(syncState.username)}</span>
+                <span class="cloud-status-dot"></span>
+              </div>
+              <div class="cloud-account-sync-time">Last synced: ${lastSynced}</div>
+            </div>
+
+            <div class="cloud-modal-actions cloud-modal-actions--connected">
+              <button class="cloud-modal-btn cloud-modal-btn--ghost" data-action="cloud-disconnect" type="button">Sign Out</button>
+              <button class="cloud-modal-btn cloud-modal-btn--primary" data-action="cloud-pull" type="button">Refresh from Cloud</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Disconnected state - show sign in form
   return `
     <div class="cloud-modal-overlay" data-modal="cloud-settings">
       <div class="cloud-modal">
         <div class="cloud-modal-header">
-          <h3>Cloud Sync Settings</h3>
+          <h3>${modalTitle}</h3>
           <button class="cloud-modal-close" data-action="close-cloud-modal" type="button">×</button>
         </div>
 
         <div class="cloud-modal-body">
-          <div class="cloud-modal-status" data-sync-state="${escapeAttr(statusClass)}">
-            <span class="cloud-status-dot"></span>
-            <span class="cloud-status-text">${escapeHtml(syncState.message || (isConnected ? 'Connected' : 'Local only'))}</span>
-          </div>
-
           <div class="cloud-modal-input-group">
             <label for="cloud-modal-username">Username</label>
             <input
@@ -4458,18 +4538,13 @@ function renderCloudSettingsModal() {
               spellcheck="false"
               data-cloud-username
               placeholder="e.g. alex-w"
-              value="${escapeAttr(syncState.username || '')}"
+              value=""
             />
-            <p class="cloud-modal-hint">No password needed. If data exists for this username, we'll load it; otherwise we'll create it.</p>
+            <p class="cloud-modal-hint">No password required. Use a unique name—anyone who knows it can access your data.</p>
           </div>
 
           <div class="cloud-modal-actions">
-            ${isConnected ? `
-              <button class="cloud-modal-btn cloud-modal-btn--primary" data-action="cloud-pull" type="button">Pull Latest</button>
-              <button class="cloud-modal-btn cloud-modal-btn--ghost" data-action="cloud-disconnect" type="button">Disconnect</button>
-            ` : `
-              <button class="cloud-modal-btn cloud-modal-btn--primary" data-action="cloud-connect" type="button">Connect</button>
-            `}
+            <button class="cloud-modal-btn cloud-modal-btn--primary cloud-modal-btn--full" data-action="cloud-connect" type="button">Sign In</button>
           </div>
         </div>
       </div>
@@ -4488,6 +4563,19 @@ function openCloudSettingsModal(root) {
 function closeCloudSettingsModal() {
   const modal = document.querySelector('[data-modal="cloud-settings"]');
   if (modal) modal.remove();
+}
+
+function refreshCloudSettingsModal(root) {
+  const modal = document.querySelector('[data-modal="cloud-settings"]');
+  if (!modal) return;
+
+  // Get the modal container and replace its content
+  const newModal = document.createElement('div');
+  newModal.innerHTML = renderCloudSettingsModal();
+  const newContent = newModal.firstElementChild;
+
+  modal.replaceWith(newContent);
+  attachCloudModalListeners(root);
 }
 
 function attachCloudModalListeners(root) {
@@ -4514,24 +4602,25 @@ function attachCloudModalListeners(root) {
     });
   }
 
-  // Pull button
+  // Pull button (Refresh from Cloud)
   const pullBtn = modal.querySelector('[data-action="cloud-pull"]');
   if (pullBtn) {
     pullBtn.addEventListener('click', async () => {
       await handleSyncRefresh(root);
-      closeCloudSettingsModal();
-      openCloudSettingsModal(root); // Reopen with updated state
+      refreshCloudSettingsModal(root);
+      showToast('Data refreshed from cloud', 'success');
     });
   }
 
-  // Disconnect button
+  // Disconnect button (Sign Out)
   const disconnectBtn = modal.querySelector('[data-action="cloud-disconnect"]');
   if (disconnectBtn) {
     disconnectBtn.addEventListener('click', () => {
+      const username = syncState.username;
       handleSyncDisconnect(root);
-      closeCloudSettingsModal();
-      openCloudSettingsModal(root); // Reopen with updated state
       updateCloudUserIndicator();
+      refreshCloudSettingsModal(root);
+      showToast(`Signed out from ${username}`, 'info');
     });
   }
 
@@ -4643,6 +4732,8 @@ async function handleCloudConnectFromModal(input, root) {
         lastSynced: Date.now()
       });
     }
+    // Show success toast
+    showToast(`Signed in as ${username}`, 'success');
   } catch (error) {
     console.error('[Cloud Sync] connect failed', error);
     setSyncState({
@@ -4650,10 +4741,10 @@ async function handleCloudConnectFromModal(input, root) {
       message: 'Cloud save failed (local only)',
       lastError: error?.message || 'Cloud error'
     });
+    showToast('Sign in failed', 'error');
   } finally {
     updateCloudUserIndicator();
-    closeCloudSettingsModal();
-    openCloudSettingsModal(root); // Reopen with updated state
+    closeCloudSettingsModal(); // Close modal on successful sign in
   }
 }
 
@@ -4663,11 +4754,11 @@ function showCloudSyncChoiceDialog(username, localCount, remoteCount, remoteDate
     overlay.className = 'cloud-sync-choice-overlay';
     overlay.innerHTML = `
       <div class="cloud-sync-choice-dialog">
-        <h3>Cloud Data Found</h3>
-        <p>Account <strong>@${username}</strong> already has data in the cloud.</p>
+        <h3>Existing Data Found</h3>
+        <p>The account <strong>${username}</strong> already has data saved in the cloud.</p>
         <div class="sync-choice-comparison">
           <div class="sync-choice-local">
-            <span class="sync-choice-label">Local</span>
+            <span class="sync-choice-label">This Browser</span>
             <span class="sync-choice-value">${localCount} ${localCount === 1 ? 'company' : 'companies'}</span>
           </div>
           <div class="sync-choice-vs">vs</div>
@@ -4677,13 +4768,13 @@ function showCloudSyncChoiceDialog(username, localCount, remoteCount, remoteDate
             <span class="sync-choice-date">Last saved: ${remoteDate}</span>
           </div>
         </div>
-        <p class="sync-choice-warning">Choose which data to keep. The other will be overwritten.</p>
+        <p class="sync-choice-warning">Choose which data to keep. The other will be permanently overwritten.</p>
         <div class="sync-choice-buttons">
           <button type="button" class="sync-choice-btn sync-choice-pull" data-choice="pull">
-            ↓ Pull Cloud Data
+            Use Cloud Data
           </button>
           <button type="button" class="sync-choice-btn sync-choice-push" data-choice="push">
-            ↑ Push Local Data
+            Use This Browser's Data
           </button>
           <button type="button" class="sync-choice-btn sync-choice-cancel" data-choice="cancel">
             Cancel

@@ -1795,6 +1795,131 @@ a {
   color: var(--text-primary);
 }
 
+.cloud-modal-btn--full {
+  width: 100%;
+}
+
+.cloud-modal-actions--connected {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cloud-modal-actions--connected .cloud-modal-btn {
+  flex: 1;
+}
+
+/* Account Card in Modal */
+.cloud-modal-account-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.cloud-account-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cloud-account-icon {
+  font-size: 1.2rem;
+}
+
+.cloud-account-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.cloud-account-sync-time {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.4rem;
+}
+
+/* Sync Spinner */
+.sync-spinner {
+  display: inline-block;
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--solidcam-gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Toast Notifications */
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 11000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(42, 42, 42, 0.98), rgba(28, 28, 28, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  transform: translateX(100%);
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  pointer-events: auto;
+}
+
+.toast--visible {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.toast--success .toast-icon {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.toast--error .toast-icon {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.toast--info .toast-icon {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.toast-message {
+  flex: 1;
+}
+
 /* Cloud Sync Choice Dialog */
 .cloud-sync-choice-overlay {
   position: fixed;
