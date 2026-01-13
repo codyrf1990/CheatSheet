@@ -37,7 +37,7 @@ body {
   margin: 0;
   font-family: var(--font-system);
   color: var(--text-primary);
-  background: #000;
+  background: transparent;
   cursor: url('../img/crosshair.png?v=2') 16 16, crosshair;
 }
 
@@ -6520,6 +6520,36 @@ body.thanksgiving-active {
   0% { transform: scale(1); text-shadow: 0 0 6px rgba(173, 255, 47, 0.4); }
   40% { transform: scale(1.25); text-shadow: 0 0 16px rgba(255, 255, 255, 0.9); }
   100% { transform: scale(1); text-shadow: 0 0 6px rgba(173, 255, 47, 0.4); }
+}
+
+/* ================================
+   PARTICLE BACKGROUND
+   ================================ */
+
+.particle-bg-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: -10002;
+  background: linear-gradient(145deg, #020101 0%, #050203 25%, #080305 50%, #0a0406 75%, #050202 100%);
+}
+
+.particle-bg-container {
+  position: fixed;
+  inset: 0;
+  z-index: -10001;
+  overflow: hidden;
+}
+
+.particle-bg-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
 }
 
 /* ================================

@@ -19,7 +19,7 @@ import {
 
 // Holiday mode toggles - only one should be true at a time
 const THANKSGIVING_MODE = false;
-const CHRISTMAS_MODE = true;
+const CHRISTMAS_MODE = false;
 
 // Apply christmas class immediately to prevent flash of Thanksgiving elements
 if (CHRISTMAS_MODE && typeof document !== 'undefined') {
@@ -371,6 +371,16 @@ export function renderApp(mount) {
   // Setup modal backdrop click and keyboard handlers
   setupModalBackdropHandlers(root);
   setupModalKeyboardHandlers(root);
+
+  // Inject particle background (always visible)
+  if (!root.querySelector('.particle-bg-container')) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = renderParticleBackground();
+    while (wrapper.firstElementChild) {
+      root.appendChild(wrapper.firstElementChild);
+    }
+    initParticleBackground();
+  }
 
   // Inject Thanksgiving overlay if enabled
   if (THANKSGIVING_MODE && !root.querySelector('.thanksgiving-overlay')) {
@@ -1906,6 +1916,29 @@ function initTurkeyHunt() {
       }
     }
   });
+}
+
+// ================================
+// PARTICLE BACKGROUND
+// ================================
+
+function renderParticleBackground() {
+  return `
+    <div class="particle-bg-fallback"></div>
+    <div class="particle-bg-container">
+      <video class="particle-bg-video" loop muted playsinline disablepictureinpicture>
+        <source src="assets/video/Particle.mp4" type="video/mp4">
+      </video>
+    </div>
+  `;
+}
+
+function initParticleBackground() {
+  const video = document.querySelector('.particle-bg-video');
+  if (video) {
+    video.muted = true;
+    video.pause();
+  }
 }
 
 // ================================
