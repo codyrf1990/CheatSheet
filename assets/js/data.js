@@ -178,8 +178,7 @@ export const panels = [
       'SolidShop-Sim-Maint',
       'Swiss-Maint',
       'Turn-Maint',
-      'Vericut-Maint',
-      'Happy Thanksgiving Darryl!!'
+      'Vericut-Maint'
     ]
   },
   {
